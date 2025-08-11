@@ -16,7 +16,6 @@ flutter:
         dartPluginClass: JavaScriptAndroid
 
 dependencies:
-  ffi: ^2.1.4
   flutter:
     sdk: flutter
   javascript_platform_interface:
@@ -28,4 +27,3 @@ dev_dependencies:
   plugin_platform_interface: ^2.1.8
   flutter_lints: ^6.0.0
   pigeon: ^26.0.0
-  vendor: ^0.9.7

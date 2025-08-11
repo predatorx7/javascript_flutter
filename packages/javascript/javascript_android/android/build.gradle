@@ -29,13 +29,6 @@ android {
         jvmTarget = '1.8'
     }
 
-    externalNativeBuild {
-        cmake {
-            path "src/main/cxx/CMakeLists.txt"
-            version "4.0.2"
-        }
-    }
-
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
         test.java.srcDirs += 'src/test/kotlin'
@@ -48,6 +41,9 @@ android {
     dependencies {
         testImplementation 'org.jetbrains.kotlin:kotlin-test'
         testImplementation 'org.mockito:mockito-core:5.0.0'
+
+        implementation "androidx.javascriptengine:javascriptengine:1.0.0"
+        implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.6.0"`
     }
 
     testOptions {
