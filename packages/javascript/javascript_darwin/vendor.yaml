@@ -1,0 +1,33 @@
+# vendor.yaml
+# import_rewrites:
+  # Map of rewrites that should be applied to lib/, bin/ and test/ in project.
+  # Example:
+  #   import "package:<package>/..."
+  # is rewritten to:
+  #   import "package:myapp/src/third_party/<name>/lib/..."
+  # where 'myapp' is the root project name.
+  # flutter_js: flutter_js
+vendored_dependencies:
+  # Specification of which packages to be vendor into:
+  #   lib/src/third_party/<name>/
+  flutter_js:
+    package: flutter_js
+    version: 0.8.5
+    # import_rewrites:
+    #   # Rewrites to be applied inside: lib/src/third_party/<name>/
+    #   flutter_js: flutter_js
+    include:
+    # Glob patterns for which files to include from the package.
+    # For syntax documentation see: https://pub.dev/packages/glob
+    #
+    # If not specified `include` will default to the following list:
+    - LICENSE
+    - analysis_options.yaml
+    - lib/javascriptcore/binding/**
+    - lib/javascriptcore/jscore/**
+    - lib/javascriptcore/jscore_bindings.dart
+    - lib/javascriptcore/flutter_jscore.dart
+    - lib/javascriptcore/jscore_runtime.dart
+    - lib/extensions/**
+    - lib/javascript_runtime.dart
+    - lib/js_eval_result.dart

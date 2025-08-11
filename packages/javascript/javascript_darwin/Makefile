@@ -1,0 +1,2 @@
+vendor:
+	dart run vendor
