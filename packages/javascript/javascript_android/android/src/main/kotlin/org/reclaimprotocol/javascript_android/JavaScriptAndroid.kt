@@ -4,14 +4,12 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.javascriptengine.IsolateStartupParameters
 import androidx.javascriptengine.IsolateTerminatedException
-import androidx.javascriptengine.JavaScriptException
 import androidx.javascriptengine.JavaScriptIsolate
 import androidx.javascriptengine.JavaScriptSandbox
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import java.util.concurrent.TimeUnit
-
+import java.util.concurrent.Executor
 
 class JavaScriptAndroid(private var applicationContext: android.content.Context) :
     JavaScriptAndroidPlatformApi {
@@ -19,8 +17,6 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
         private const val TAG = "JavaScriptAndroid"
 
         private var sandbox: ListenableFuture<JavaScriptSandbox>? = null
-
-
     }
 
     private fun getJSSandbox(): ListenableFuture<JavaScriptSandbox> {
@@ -31,21 +27,33 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
 
     private val activeJsIsolates = mutableMapOf<String, JavaScriptIsolate>()
 
+    private fun getMainExecutor(): Executor {
+        val executor = ContextCompat.getMainExecutor(applicationContext)
+        return executor
+    }
+
     override fun startJavaScriptEngine(
         javascriptEngineId: String, callback: (Result<Unit>) -> Unit
     ) {
         try {
             val sandboxFuture = getJSSandbox()
-            val executor = ContextCompat.getMainExecutor(applicationContext)
-            Futures.transform(sandboxFuture, { sandbox ->
-                val startupParams = IsolateStartupParameters()
-                if (sandbox.isFeatureSupported(JavaScriptSandbox.JS_FEATURE_ISOLATE_MAX_HEAP_SIZE)) {
-                    startupParams.setMaxHeapSizeBytes(100000000)
-                }
-                val jsIsolate = sandbox.createIsolate(startupParams)
-                activeJsIsolates.put(javascriptEngineId, jsIsolate)
-                callback(Result.success(Unit))
-            }, executor)
+            Futures.addCallback(
+                sandboxFuture, object : FutureCallback<JavaScriptSandbox> {
+                    override fun onSuccess(sandbox: JavaScriptSandbox) {
+                        val startupParams = IsolateStartupParameters()
+                        if (sandbox.isFeatureSupported(JavaScriptSandbox.JS_FEATURE_ISOLATE_MAX_HEAP_SIZE)) {
+                            startupParams.setMaxHeapSizeBytes(IsolateStartupParameters.AUTOMATIC_MAX_HEAP_SIZE)
+                        }
+                        val jsIsolate = sandbox.createIsolate(startupParams)
+                        activeJsIsolates.put(javascriptEngineId, jsIsolate)
+                        callback(Result.success(Unit))
+                    }
+
+                    override fun onFailure(t: Throwable) {
+                        callback(Result.failure(t))
+                    }
+                }, getMainExecutor()
+            )
         } catch (e: Exception) {
             callback(Result.failure(e))
         }
@@ -78,15 +86,43 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
     }
 
     override fun runJavaScriptReturningResult(
-        javascriptEngineId: String, javaScript: String, callback: (Result<Any?>) -> Unit
+        javascriptEngineId: String, javaScript: String, callback: (Result<String?>) -> Unit
     ) {
         try {
             val js = requireJsIsolateById(javascriptEngineId)
 
-            val result = js.evaluateJavaScriptAsync(javaScript).get(10, TimeUnit.MINUTES)
+            var didSubmitResponse = false
 
-            Log.i("JavaScriptAndroid", "result: $result")
-            callback(Result.success(result))
+            js.addOnTerminatedCallback(getMainExecutor(), { terminationInfo ->
+                Log.e(TAG, "The isolate crashed: $terminationInfo")
+                if (!didSubmitResponse) {
+                    didSubmitResponse = true
+                    callback(Result.failure(IsolateTerminatedException(terminationInfo.toString())))
+                }
+                activeJsIsolates.remove(javascriptEngineId)
+            })
+
+            Futures.addCallback(
+                js.evaluateJavaScriptAsync(javaScript), object : FutureCallback<String> {
+                    override fun onSuccess(result: String) {
+                        if (didSubmitResponse) {
+                            Log.i("JavaScriptAndroid", "A response was received when didSubmitResponse is true: $result")
+                            return
+                        }
+                        didSubmitResponse = true
+                        callback(Result.success(result))
+                    }
+
+                    override fun onFailure(t: Throwable) {
+                        if (didSubmitResponse) {
+                            Log.e("JavaScriptAndroid", "An error was received when didSubmitResponse is true", t)
+                            return
+                        }
+                        didSubmitResponse = true
+                        callback(Result.failure(t))
+                    }
+                }, getMainExecutor()
+            )
         } catch (e: Exception) {
             callback(Result.failure(e))
         }

@@ -9,7 +9,7 @@ import 'package:pigeon/pigeon.dart';
       package: 'org.reclaimprotocol.javascript_android',
     ),
     kotlinOut:
-        'android/src/main/java/org/reclaimprotocol/javascript_android/Messages.kt',
+        'android/src/main/kotlin/org/reclaimprotocol/javascript_android/Messages.kt',
     copyrightHeader: 'pigeons/copyright.txt',
   ),
 )
@@ -22,7 +22,7 @@ abstract class JavaScriptAndroidPlatformApi {
   @async
   void dispose(String javascriptEngineId);
   @async
-  Object? runJavaScriptReturningResult(
+  String? runJavaScriptReturningResult(
     String javascriptEngineId,
     String javaScript,
   );

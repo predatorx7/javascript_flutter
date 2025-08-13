@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:javascript_android/src/user_scripts.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
+import 'src/parse.dart';
 import 'src/engine_context.dart';
 import 'src/pigeons/messages.pigeon.dart';
-import 'src/scripts/messaging.dart';
 
 /// The Android implementation of [JavaScriptPlatform].
 class JavaScriptAndroid extends JavaScriptPlatform {
@@ -17,19 +17,28 @@ class JavaScriptAndroid extends JavaScriptPlatform {
     JavaScriptPlatform.instance = JavaScriptAndroid();
   }
 
-  final _activeEngines = <String, EngineHostState>{};
+  final _activeEngineHostState = <String, EngineHostState>{};
 
   EngineHostState _requireEngineState(String javascriptEngineId) {
-    if (!_activeEngines.containsKey(javascriptEngineId)) {
+    if (!_activeEngineHostState.containsKey(javascriptEngineId)) {
       throw Exception('Engine by id "$javascriptEngineId" is not found');
     }
-    return _activeEngines[javascriptEngineId]!;
+    return _activeEngineHostState[javascriptEngineId]!;
   }
 
   @override
-  Future<void> startJavaScriptEngine(String javascriptEngineId) async {
+  Future<void> startJavaScriptEngine(
+    String javascriptEngineId, {
+    Duration messageListenerInterval = const Duration(milliseconds: 50),
+  }) async {
     await pigeonPlatformApi.startJavaScriptEngine(javascriptEngineId);
-    _activeEngines[javascriptEngineId] = EngineHostState();
+    _activeEngineHostState[javascriptEngineId] = EngineHostState(
+      engineId: javascriptEngineId,
+      messageListenerInterval: messageListenerInterval,
+      runJavaScript: (javaScript) {
+        return runJavaScriptReturningResult(javascriptEngineId, javaScript);
+      },
+    );
     for (final script in getEngineStartupScripts()) {
       await runJavaScriptReturningResult(javascriptEngineId, script);
     }
@@ -41,7 +50,7 @@ class JavaScriptAndroid extends JavaScriptPlatform {
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
     final engineState = _requireEngineState(javascriptEngineId);
-    engineState.addChannel(
+    await engineState.addChannel(
       javaScriptChannelParams.name,
       javaScriptChannelParams,
     );
@@ -60,7 +69,7 @@ class JavaScriptAndroid extends JavaScriptPlatform {
   Future<void> dispose(String javascriptEngineId) {
     final engineState = _requireEngineState(javascriptEngineId);
     engineState.dispose();
-    _activeEngines.remove(javascriptEngineId);
+    _activeEngineHostState.remove(javascriptEngineId);
     return pigeonPlatformApi.dispose(javascriptEngineId);
   }
 
@@ -68,11 +77,12 @@ class JavaScriptAndroid extends JavaScriptPlatform {
   Future<Object?> runJavaScriptReturningResult(
     String javascriptEngineId,
     String javaScript,
-  ) {
-    return pigeonPlatformApi.runJavaScriptReturningResult(
+  ) async {
+    final result = await pigeonPlatformApi.runJavaScriptReturningResult(
       javascriptEngineId,
       javaScript,
     );
+    return parseValue(result);
   }
 
   @override

@@ -56,6 +56,7 @@ final class JsRuntimeDefault implements JsRuntimeDelegate {
       JavaScriptChannelParams(
         name: channelName,
         onMessageReceived: (message) {
+          print('$channelName.onMessage: $message');
           final data = fn(message.message);
           return JavaScriptReply(message: json.encode(data));
         },

@@ -65,6 +65,7 @@ class JsRuntimeService {
         // if (kDebugMode) {
         //   print('ConsoleLog: ${args.runtimeType}:$args');
         // }
+        print('message: (${args.runtimeType}) $args');
         final data = args is List
             ? args
             : (args is String

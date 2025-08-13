@@ -5,11 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:javascript/javascript.dart';
 import 'package:javascript_example/runtime_service.dart';
+import 'package:logging/logging.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = true;
   GoogleFonts.pendingFonts([GoogleFonts.sourceCodePro()]);
+
+  hierarchicalLoggingEnabled = true;
+  Logger.root.level = Level.ALL;
+  Logger.root.onRecord.listen((record) {
+    debugPrint(
+      '(${record.sequenceNumber.toString().padLeft(4)}) ${record.level.name.padLeft(7)} [${record.time}]: ${record.message}',
+    );
+    if (record.error != null) {
+      debugPrint(record.error.toString());
+      if (record.stackTrace != null) {
+        debugPrintStack(stackTrace: record.stackTrace);
+      }
+    }
+  });
 
   runApp(const JsInterpreterApp());
 }

@@ -98,7 +98,7 @@ class JavaScriptAndroidPlatformApi {
     }
   }
 
-  Future<Object?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript) async {
+  Future<String?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.runJavaScriptReturningResult$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -117,7 +117,7 @@ class JavaScriptAndroidPlatformApi {
         details: pigeonVar_replyList[2],
       );
     } else {
-      return pigeonVar_replyList[0];
+      return (pigeonVar_replyList[0] as String?);
     }
   }
 
