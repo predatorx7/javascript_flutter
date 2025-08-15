@@ -59,6 +59,16 @@ class JsInterpreterViewModel extends ChangeNotifier {
         ),
       );
 
+      await js.addJavaScriptChannel(
+        JavaScriptChannelParams(
+          name: 'Sum',
+          onMessageReceived: (message) {
+            final data = json.decode(message.message!);
+            return JavaScriptReply(message: json.encode(data['a'] + data['b']));
+          },
+        ),
+      );
+
       /// Add your own code to evaluate javascript or add javascript channels here
       await js.addJavaScriptChannel(
         JavaScriptChannelParams(
@@ -73,7 +83,6 @@ class JsInterpreterViewModel extends ChangeNotifier {
           },
         ),
       );
-      print('done viewmodel');
     });
   }
 
