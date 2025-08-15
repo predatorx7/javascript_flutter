@@ -49,6 +49,15 @@ abstract class JavaScriptPlatform extends PlatformInterface {
   /// type the given expression evaluates to is unsupported.
   Future<Object?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript);
 
+  /// Runs the JavaScript file in the context of the current page, and returns the result.
+  ///
+  /// The Future completes with an error if a JavaScript error occurred, or if the
+  /// type the given expression evaluates to is unsupported.
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  );
+
   /// Adds a new JavaScript channel to the set of enabled channels.
   Future<void> addJavaScriptChannel(
     String javascriptEngineId,

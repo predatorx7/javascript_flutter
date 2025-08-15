@@ -37,6 +37,14 @@ class JavaScriptMock extends JavaScriptPlatform {
   Future<Object?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript) async {
     return Future.value();
   }
+
+  @override
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  ) async {
+    return Future.value();
+  }
 }
 
 void main() {
@@ -65,6 +73,10 @@ void main() {
 
     test('runJavaScriptReturningResult', () async {
       await javascriptPlatform.runJavaScriptReturningResult('test', 'console.log("test")');
+    });
+
+    test('runJavaScriptFromFileReturningResult', () async {
+      await javascriptPlatform.runJavaScriptFromFileReturningResult('test', 'test.js');
     });
   });
 }
