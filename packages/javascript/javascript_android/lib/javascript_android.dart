@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:javascript_android/src/user_scripts.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
 import 'src/parse.dart';
-import 'src/engine_context.dart';
+import 'src/host/state.dart';
 import 'src/pigeons/messages.pigeon.dart';
 
 /// The Android implementation of [JavaScriptPlatform].
@@ -30,18 +29,18 @@ class JavaScriptAndroid extends JavaScriptPlatform {
   Future<void> startJavaScriptEngine(
     String javascriptEngineId, {
     Duration messageListenerInterval = const Duration(milliseconds: 50),
+    bool implementJsSetTimeout = true,
   }) async {
     await pigeonPlatformApi.startJavaScriptEngine(javascriptEngineId);
-    _activeEngineHostState[javascriptEngineId] = EngineHostState(
+    final engineHostState = await EngineHostState.create(
       engineId: javascriptEngineId,
       messageListenerInterval: messageListenerInterval,
+      implementJsSetTimeout: implementJsSetTimeout,
       runJavaScript: (javaScript) {
         return runJavaScriptReturningResult(javascriptEngineId, javaScript);
       },
     );
-    for (final script in getEngineStartupScripts()) {
-      await runJavaScriptReturningResult(javascriptEngineId, script);
-    }
+    _activeEngineHostState[javascriptEngineId] = engineHostState;
   }
 
   @override
@@ -50,10 +49,7 @@ class JavaScriptAndroid extends JavaScriptPlatform {
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
     final engineState = _requireEngineState(javascriptEngineId);
-    await engineState.addChannel(
-      javaScriptChannelParams.name,
-      javaScriptChannelParams,
-    );
+    await engineState.addChannel(javaScriptChannelParams);
   }
 
   @override
@@ -82,6 +78,20 @@ class JavaScriptAndroid extends JavaScriptPlatform {
       javascriptEngineId,
       javaScript,
     );
+
+    return parseValue(result);
+  }
+
+  @override
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  ) async {
+    final result = await pigeonPlatformApi.runJavaScriptFromFileReturningResult(
+      javascriptEngineId,
+      javaScriptFilePath,
+    );
+
     return parseValue(result);
   }
 

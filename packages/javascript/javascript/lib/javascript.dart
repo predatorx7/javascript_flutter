@@ -41,4 +41,12 @@ abstract interface class JavaScript {
   /// The Future completes with an error if a JavaScript error occurred, or if the
   /// type the given expression evaluates to is unsupported.
   Future<Object?> runJavaScriptReturningResult(String javaScript);
+
+  /// Runs the JavaScript file in the context of the current page, and returns the result.
+  ///
+  /// The Future completes with an error if a JavaScript error occurred, or if the
+  /// type the given expression evaluates to is unsupported.
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javaScriptFilePath,
+  );
 }

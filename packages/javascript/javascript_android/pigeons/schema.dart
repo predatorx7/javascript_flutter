@@ -13,7 +13,6 @@ import 'package:pigeon/pigeon.dart';
     copyrightHeader: 'pigeons/copyright.txt',
   ),
 )
-
 /// Apis implemented by the Reclaim module for use by the host.
 @HostApi()
 abstract class JavaScriptAndroidPlatformApi {
@@ -25,6 +24,11 @@ abstract class JavaScriptAndroidPlatformApi {
   String? runJavaScriptReturningResult(
     String javascriptEngineId,
     String javaScript,
+  );
+  @async
+  String? runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
   );
   @async
   void setIsInspectable(String javascriptEngineId, bool isInspectable);

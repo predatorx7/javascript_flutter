@@ -4,20 +4,48 @@ import 'package:logging/logging.dart';
 
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
+part 'scripts.dart';
+
 typedef RunJavascriptCallback = Future<Object?> Function(String javaScript);
 
 class EngineHostState {
-  EngineHostState({
+  EngineHostState._({
     required this.messageListenerInterval,
     required this.engineId,
     required RunJavascriptCallback runJavaScript,
-  }) : _runJavaScript = runJavaScript,
-       _ensureInitialized = runJavaScript(_MESSAGING_SCRIPT);
+  }) {
+    _runJavaScript = (String javascript) {
+      if (_isDisposed) return Future.value(null);
+      return runJavaScript(javascript);
+    };
+  }
+
+  static Future<EngineHostState> create({
+    required String engineId,
+    required Duration messageListenerInterval,
+    bool implementJsSetTimeout = true,
+    required RunJavascriptCallback runJavaScript,
+  }) async {
+    final state = EngineHostState._(
+      messageListenerInterval: messageListenerInterval,
+      engineId: engineId,
+      runJavaScript: runJavaScript,
+    );
+
+    await state._runJavaScript(_MESSAGING_SCRIPT);
+    if (implementJsSetTimeout) {
+      await state._runJavaScript(_TIMEOUT_SCRIPT);
+      await state._setupJsSetTimeoutMessaging();
+    }
+
+    return state;
+  }
 
   final String engineId;
   final Duration messageListenerInterval;
-  final RunJavascriptCallback _runJavaScript;
-  final Future<void> _ensureInitialized;
+
+  late final RunJavascriptCallback _runJavaScript;
+
   late final Logger _logger = Logger('EngineHostState.$engineId');
 
   final Map<String, JavaScriptChannelParams> _enabledChannels = {};
@@ -41,7 +69,7 @@ class EngineHostState {
   Future<Map<String, Object?>> _getPendingMessages() async {
     final channelPendingMessages = _enabledChannels.keys
         .map((channelName) {
-          return '"$channelName": globalThis["$channelName"].getPendingMessages()';
+          return '"$channelName": globalThis.getPendingMessages("$channelName")';
         })
         .join(',');
 
@@ -53,11 +81,6 @@ class EngineHostState {
   }
 
   final Map<String, Set<int>> _processingMessages = {};
-
-  Future<Object?> _evaluateSafely(String javascript) {
-    if (_isDisposed) return Future.value(null);
-    return _runJavaScript(javascript);
-  }
 
   void _onTimerTick(Timer timer) async {
     timer.cancel();
@@ -84,7 +107,7 @@ class EngineHostState {
             continue;
           }
           final id = event['id'] as int;
-          final message = event['message'];
+          final message = event['message'] as String;
           final processingEventIds = _processingMessages.putIfAbsent(
             channelName,
             () => {},
@@ -105,7 +128,7 @@ class EngineHostState {
 
   Future<void> _processMessage(
     JavaScriptChannelParams channel,
-    Object? message,
+    String message,
     String channelName,
     int id,
   ) async {
@@ -115,9 +138,7 @@ class EngineHostState {
         'Processing a new message by id $id for channel $channelName: (${message.runtimeType}) $message',
       );
       final response = await channel.onMessageReceived(
-        JavaScriptMessage(
-          message: message is String ? message : json.encode(message),
-        ),
+        JavaScriptMessage(message: message),
       );
       final reply = response.message;
       String encodedMessage = 'null';
@@ -127,16 +148,16 @@ class EngineHostState {
       _logger.finest(
         'Resolved message by id $id for channel $channelName: $encodedMessage',
       );
-      evaluationResult = _evaluateSafely(
-        'globalThis["$channelName"].resolveById($id, ${json.encode(encodedMessage)})',
+      evaluationResult = _runJavaScript(
+        'globalThis.HostMessengerRegisteredChannels["$channelName"].resolveById($id, ${json.encode(encodedMessage)})',
       );
     } catch (e) {
       final encodedMessage = e.toString();
       _logger.finest(
         'Rejected message by id $id for channel $channelName: $encodedMessage',
       );
-      evaluationResult = _evaluateSafely(
-        'globalThis["$channelName"].rejectById($id, ${json.encode(encodedMessage)})',
+      evaluationResult = _runJavaScript(
+        'globalThis.HostMessengerRegisteredChannels["$channelName"].rejectById($id, ${json.encode(encodedMessage)})',
       );
     }
     try {
@@ -153,15 +174,14 @@ class EngineHostState {
     _timer = null;
   }
 
-  Future<void> addChannel(
-    String channelName,
-    JavaScriptChannelParams channelParams,
-  ) async {
-    await _ensureInitialized;
+  Future<void> addChannel(JavaScriptChannelParams channelParams) async {
+    final channelName = channelParams.name;
     _enabledChannels[channelName] = channelParams;
     _ensureMessageListenerActive();
     try {
-      await _runJavaScript('globalThis["$channelName"] = new HostMessenger();');
+      await _runJavaScript('''globalThis.HostMessengerRegisteredChannels["$channelName"] = new HostMessenger();
+      // for compatibility with popular webview plugins receiving messages
+      globalThis["$channelName"] = globalThis.HostMessengerRegisteredChannels["$channelName"];''');
       _logger.finest('Channel $channelName added');
     } catch (e, s) {
       _logger.severe('Error adding channel $channelName', e, s);
@@ -185,57 +205,37 @@ class EngineHostState {
     _removeTimer();
     _enabledChannels.clear();
   }
-}
 
-const String _MESSAGING_SCRIPT = r'''
-class HostMessenger {
-    constructor() {
-        this.pendingMessages = [];
-        this.id = 0;
-    }
+  Future<void> _setupJsSetTimeoutMessaging() async {
+    await addChannel(
+      JavaScriptChannelParams(
+        name: 'SetTimeout',
+        onMessageReceived: (message) async {
+          try {
+            final args = json.decode(message.message ?? '{}');
+            final int duration = args['timeout'] ?? 0;
+            final String idx = args['timeoutIndex'];
 
-    getPendingMessages() {
-        return this.pendingMessages.map(m => ({id: m.id, message: m.message}));
-    }
-
-    removeMessageById(id) {
-        this.pendingMessages = this.pendingMessages.filter(m => m.id !== id);
-    }
-
-    resolveById(id, response) {
-        let message = this.pendingMessages.find(m => m.id === id);
-        if (message) {
-            message.resolve(response);
-            this.removeMessageById(id);
-            return true;
-        }
-        return false;
-    }
-
-    rejectById(id, error) {
-        let message = this.pendingMessages.find(m => m.id === id);
-        if (message) {
-            message.reject(error);
-            this.removeMessageById(id);
-            return true;
-        }
-        return false;
-    }
-
-    postMessage(message) {
-        let promise = new Promise((resolve, reject) => {
-            this.pendingMessages.push({
-                id: this.id++,
-                message,
-                resolve,
-                reject
+            Future.delayed(Duration(milliseconds: duration), () async {
+              try {
+                await _runJavaScript("""
+            __NATIVE_HOST_JS__setTimeoutCallbacks[$idx].call();
+            delete __NATIVE_HOST_JS__setTimeoutCallbacks[$idx];
+          """);
+              } catch (e, s) {
+                _logger.severe(
+                  'Error when running setTimeout callback by id $idx',
+                  e,
+                  s,
+                );
+              }
             });
-        });
-        return promise;
-    }
+          } catch (e, s) {
+            _logger.severe('Exception no setTimeout: $e', s);
+          }
+          return JavaScriptReply(message: '');
+        },
+      ),
+    );
+  }
 }
-
-globalThis.sendMessage = function(channelName, message) {
-  return globalThis[channelName].postMessage(message);
-}
-''';

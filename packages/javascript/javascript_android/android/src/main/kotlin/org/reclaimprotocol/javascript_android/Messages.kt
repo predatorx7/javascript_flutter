@@ -67,6 +67,7 @@ interface JavaScriptAndroidPlatformApi {
   fun startJavaScriptEngine(javascriptEngineId: String, callback: (Result<Unit>) -> Unit)
   fun dispose(javascriptEngineId: String, callback: (Result<Unit>) -> Unit)
   fun runJavaScriptReturningResult(javascriptEngineId: String, javaScript: String, callback: (Result<String?>) -> Unit)
+  fun runJavaScriptFromFileReturningResult(javascriptEngineId: String, javaScriptFilePath: String, callback: (Result<String?>) -> Unit)
   fun setIsInspectable(javascriptEngineId: String, isInspectable: Boolean, callback: (Result<Unit>) -> Unit)
 
   companion object {
@@ -124,6 +125,27 @@ interface JavaScriptAndroidPlatformApi {
             val javascriptEngineIdArg = args[0] as String
             val javaScriptArg = args[1] as String
             api.runJavaScriptReturningResult(javascriptEngineIdArg, javaScriptArg) { result: Result<String?> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(MessagesPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.runJavaScriptFromFileReturningResult$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val javascriptEngineIdArg = args[0] as String
+            val javaScriptFilePathArg = args[1] as String
+            api.runJavaScriptFromFileReturningResult(javascriptEngineIdArg, javaScriptFilePathArg) { result: Result<String?> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(MessagesPigeonUtils.wrapError(error))

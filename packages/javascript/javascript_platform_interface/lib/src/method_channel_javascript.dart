@@ -60,4 +60,15 @@ class MethodChannelJavaScript extends JavaScriptPlatform {
       javaScript,
     ]);
   }
+
+  @override
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  ) {
+    return methodChannel.invokeMethod<Object>('runJavaScriptFromFileReturningResult', [
+      javascriptEngineId,
+      javaScriptFilePath,
+    ]);
+  }
 }

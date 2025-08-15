@@ -16,7 +16,6 @@ PlatformException _createConnectionError(String channelName) {
   );
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -43,9 +42,13 @@ class JavaScriptAndroidPlatformApi {
   /// Constructor for [JavaScriptAndroidPlatformApi].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  JavaScriptAndroidPlatformApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  JavaScriptAndroidPlatformApi({
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+           ? '.$messageChannelSuffix'
+           : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -53,13 +56,17 @@ class JavaScriptAndroidPlatformApi {
   final String pigeonVar_messageChannelSuffix;
 
   Future<void> startJavaScriptEngine(String javascriptEngineId) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.startJavaScriptEngine$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.startJavaScriptEngine$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[javascriptEngineId],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[javascriptEngineId]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -76,13 +83,17 @@ class JavaScriptAndroidPlatformApi {
   }
 
   Future<void> dispose(String javascriptEngineId) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.dispose$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.dispose$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[javascriptEngineId],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[javascriptEngineId]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -98,14 +109,21 @@ class JavaScriptAndroidPlatformApi {
     }
   }
 
-  Future<String?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.runJavaScriptReturningResult$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+  Future<String?> runJavaScriptReturningResult(
+    String javascriptEngineId,
+    String javaScript,
+  ) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.runJavaScriptReturningResult$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[javascriptEngineId, javaScript],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[javascriptEngineId, javaScript]);
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {
@@ -121,14 +139,51 @@ class JavaScriptAndroidPlatformApi {
     }
   }
 
-  Future<void> setIsInspectable(String javascriptEngineId, bool isInspectable) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.setIsInspectable$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
-      pigeonVar_channelName,
-      pigeonChannelCodec,
-      binaryMessenger: pigeonVar_binaryMessenger,
+  Future<String?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  ) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.runJavaScriptFromFileReturningResult$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[javascriptEngineId, javaScriptFilePath],
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[javascriptEngineId, isInspectable]);
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_sendFuture as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return (pigeonVar_replyList[0] as String?);
+    }
+  }
+
+  Future<void> setIsInspectable(
+    String javascriptEngineId,
+    bool isInspectable,
+  ) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.setIsInspectable$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
+          pigeonVar_channelName,
+          pigeonChannelCodec,
+          binaryMessenger: pigeonVar_binaryMessenger,
+        );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[javascriptEngineId, isInspectable],
+    );
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_sendFuture as List<Object?>?;
     if (pigeonVar_replyList == null) {

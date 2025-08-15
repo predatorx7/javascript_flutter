@@ -32,4 +32,9 @@ class JavaScriptImpl implements JavaScript {
   Future<Object?> runJavaScriptReturningResult(String javaScript) {
     return _platform.runJavaScriptReturningResult(_engineId, javaScript);
   }
+
+  @override
+  Future<Object?> runJavaScriptFromFileReturningResult(String javaScriptFilePath) {
+    return _platform.runJavaScriptFromFileReturningResult(_engineId, javaScriptFilePath);
+  }
 }

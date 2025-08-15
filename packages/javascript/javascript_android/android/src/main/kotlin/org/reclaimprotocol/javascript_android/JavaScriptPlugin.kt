@@ -6,13 +6,7 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 
-/**
- * Plugin implementation that uses the new `io.flutter.embedding` package.
- *
- *
- * Instantiate this in an add to app scenario to gracefully handle activity and context changes.
- */
-public class JavaScriptPlugin : FlutterPlugin {
+public class JavaScriptPlugin : FlutterPlugin, ActivityAware {
     private var javaScriptAndroid: JavaScriptAndroid? = null
 
     override fun onAttachedToEngine(binding: FlutterPluginBinding) {
@@ -29,6 +23,23 @@ public class JavaScriptPlugin : FlutterPlugin {
 
         JavaScriptAndroidPlatformApi.setUp(binding.binaryMessenger, null)
         javaScriptAndroid = null
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        //
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        //
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        //
+    }
+
+    override fun onDetachedFromActivity() {
+        Log.i("JavaScriptPlugin", "closing javascript android on detached from activity")
+        javaScriptAndroid?.onDetachedFromActivity()
     }
 
     companion object {

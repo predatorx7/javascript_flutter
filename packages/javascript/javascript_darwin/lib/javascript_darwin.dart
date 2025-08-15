@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/extensions/fetch.dart';
@@ -178,6 +179,16 @@ class JavaScriptDarwin extends JavaScriptPlatform {
     } on TypeError {
       return promiseResult.stringResult;
     }
+  }
+
+  @override
+  Future<Object?> runJavaScriptFromFileReturningResult(
+    String javascriptEngineId,
+    String javaScriptFilePath,
+  ) async {
+    final file = File(javaScriptFilePath);
+    final javaScript = await file.readAsString();
+    return runJavaScriptReturningResult(javascriptEngineId, javaScript);
   }
 
   @override
