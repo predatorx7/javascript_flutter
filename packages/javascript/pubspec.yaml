@@ -1,10 +1,10 @@
 name: javascript
-description: Enable your app to evaluate javascript programs
+description: Enable your app to evaluate javascript programs in an isolated javascript environment
 version: 1.0.0
 publish_to: none
 
 environment:
-  sdk: ^3.8.0
+  sdk: ^3.6.0
 
 flutter:
   plugin:
@@ -19,12 +19,9 @@ flutter:
 dependencies:
   flutter:
     sdk: flutter
-  javascript_android:
-    path: ../javascript_android
-  javascript_darwin:
-    path: ../javascript_darwin
-  javascript_platform_interface:
-    path: ../javascript_platform_interface
+  javascript_android: ^1.0.0
+  javascript_darwin: ^1.0.0
+  javascript_platform_interface: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -32,3 +29,10 @@ dev_dependencies:
   mocktail: ^1.0.0
   plugin_platform_interface: ^2.0.0
   flutter_lints: ^6.0.0
+
+topics:
+  - javascript
+  - runtime
+  - scripting
+  - js
+  - interop

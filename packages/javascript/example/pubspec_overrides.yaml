@@ -1,0 +1,7 @@
+dependency_overrides:
+  javascript_platform_interface:
+    path: ../../javascript_platform_interface
+  javascript_android:
+    path: ../../javascript_android
+  javascript_darwin:
+    path: ../../javascript_darwin

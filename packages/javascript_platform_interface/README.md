@@ -1,8 +1,21 @@
-# Javascript
+# JavaScript Plugin Platform Interface
 
-[![License: UNLICENSED][license_badge]][license_link]
+<p>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-purple.svg" alt="License: MIT"></a>
+</p>
 
 Enable your app to evaluate javascript programs. A simple library that provides a javascript environment where you can run your javascript code.
 
-[license_badge]: https://img.shields.io/badge/license-UNLICENSED-blue.svg
-[license_link]: https://opensource.org/license/UNLICENSED
+A common platform interface for the [javascript](https://pub.dev/packages/javascript) plugin.
+
+This interface allows platform-specific implementations of the [javascript](https://pub.dev/packages/javascript) plugin, as well as the plugin itself, to ensure they are supporting the same interface.
+
+## Usage
+
+To implement a new platform-specific implementation of [javascript](https://pub.dev/packages/javascript), extend `JavaScriptPlatform` with an implementation that performs the platform-specific behavior, and when you register your plugin, set the default `JavaScriptPlatform` by calling `JavaScriptPlatform.instance = MyPlatformPathProvider()`.
+
+## Note on breaking changes
+
+Strongly prefer non-breaking changes (such as adding a method to the interface) over breaking changes for this package.
+
+See https://flutter.dev/go/platform-interface-breaking-changes for a discussion on why a less-clean interface is preferable to a breaking change.
