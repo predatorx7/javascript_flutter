@@ -1,10 +1,10 @@
-# JavaScript
+# JavaScript Flutter
 
 <p>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-purple.svg" alt="License: MIT"></a>
 </p>
 
-Enable your app to evaluate javascript programs. A simple library that provides a javascript environment where you can run your javascript code.
+Enable your app to evaluate javascript programs. A simple library that provides a javascript environment for your flutter apps where you can run your javascript code.
 
 ## Advantages
 
