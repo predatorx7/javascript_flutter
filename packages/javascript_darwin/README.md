@@ -6,7 +6,7 @@
 
 Enable your app to evaluate javascript programs. A simple library that provides a javascript environment where you can run your javascript code.
 
-The iOS and macOS implementation of [javascript](https://pub.dev/packages/javascript_flutter) which provides access to a JavaScript environment through [JavaScriptDarwin] platform.
+The iOS and macOS implementation of [javascript_flutter](https://pub.dev/packages/javascript_flutter) which provides access to a JavaScript environment through [JavaScriptDarwin] platform.
 
 ## Implementation
 
@@ -16,6 +16,6 @@ The implementation uses FFI for communication, taken from [pub.dev:flutter_js](h
 
 ## Usage
 
-This package is [endorsed](https://docs.flutter.dev/packages-and-plugins/developing-packages#endorsed-federated-plugin), which means you can simply use [javascript](https://pub.dev/packages/javascript_flutter) package normally. This package will be automatically included in your app when you do, so you do not need to add it to your `pubspec.yaml`.
+This package is [endorsed](https://docs.flutter.dev/packages-and-plugins/developing-packages#endorsed-federated-plugin), which means you can simply use [javascript_flutter](https://pub.dev/packages/javascript_flutter) package normally. This package will be automatically included in your app when you do, so you do not need to add it to your `pubspec.yaml`.
 
 However, if you import this package to use any of its APIs directly, you should add it to your `pubspec.yaml` as usual.

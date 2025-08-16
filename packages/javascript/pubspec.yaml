@@ -1,6 +1,8 @@
 name: javascript_flutter
 description: Enable your app to evaluate javascript programs in an isolated javascript environment
-version: 1.0.0
+repository: https://github.com/predatorx7/javascript_flutter/tree/main/packages/javascript_flutter
+issue_tracker: https://github.com/predatorx7/javascript_flutter/issues?q=is%3Aissue+is%3Aopen+label%3A%22p%3A+javascript_flutter%22
+version: 1.0.0+1
 
 environment:
   sdk: ^3.6.0
