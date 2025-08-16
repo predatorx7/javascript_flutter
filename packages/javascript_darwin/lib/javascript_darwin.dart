@@ -10,7 +10,7 @@ import 'package:javascript_platform_interface/javascript_platform_interface.dart
 
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/javascriptcore/jscore_runtime.dart';
 
-import 'src/third_party/flutter_js/lib/javascript_runtime.dart';
+import 'package:javascript_darwin/src/third_party/flutter_js/lib/javascript_runtime.dart';
 
 class JavaScriptDarwinMessage extends JavaScriptMessage {
   final Object? rawMessage;
