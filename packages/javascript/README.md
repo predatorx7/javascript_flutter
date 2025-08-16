@@ -76,6 +76,8 @@ void example() async {
 }
 ```
 
+Checkout a larger example that is using this package in a JS Interpreter UI here: [JavaScript Package Example](https://github.com/predatorx7/javascript_flutter/tree/main/packages/javascript/example).
+
 ## API Reference
 
 ### JavaScript Class
