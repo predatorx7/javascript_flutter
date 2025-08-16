@@ -1,4 +1,4 @@
-name: javascript
+name: javascript_flutter
 description: Enable your app to evaluate javascript programs in an isolated javascript environment
 version: 1.0.0
 

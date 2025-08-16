@@ -1,6 +1,6 @@
 # JavaScript Interpreter Example
 
-This example demonstrates a complete JavaScript interpreter console built with Flutter using the [`javascript`](https://pub.dev/packages/javascript) package. It showcases how to create an interactive JavaScript environment within a Flutter application.
+This example demonstrates a complete JavaScript interpreter console built with Flutter using the [`javascript`](https://pub.dev/packages/javascript_flutter) package. It showcases how to create an interactive JavaScript environment within a Flutter application.
 
 ## Features
 

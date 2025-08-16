@@ -14,9 +14,9 @@ dependencies:
   google_fonts: ^6.3.0
   http: ^1.5.0
   logging: ^1.3.0
-  javascript:
+  javascript_flutter:
     # When depending on this package from a real application you should use:
-    #   javascript: ^x.y.z
+    #   javascript_flutter: ^x.y.z
     # See https://dart.dev/tools/pub/dependencies#version-constraints
     # The example app is bundled with the plugin so we use a path dependency on
     # the parent directory to use the current plugin's version.

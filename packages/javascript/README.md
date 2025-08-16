@@ -37,7 +37,7 @@ The easiest way to use this library is via the high-level interface defined by [
 ```dart
 import 'dart:convert';
 
-import 'package:javascript/javascript.dart';
+import 'package:javascript_flutter/javascript_flutter.dart';
 
 void example() async {
   /// Create a new javascript environment

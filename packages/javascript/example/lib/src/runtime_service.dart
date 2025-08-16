@@ -1,5 +1,5 @@
 import 'package:http/http.dart' as http;
-import 'package:javascript/javascript.dart';
+import 'package:javascript_flutter/javascript_flutter.dart';
 import 'package:logging/logging.dart';
 
 import 'file.dart';

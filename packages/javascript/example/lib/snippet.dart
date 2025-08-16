@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:javascript/javascript.dart';
+import 'package:javascript_flutter/javascript_flutter.dart';
 
 void main() async {
   /// Create a new javascript environment

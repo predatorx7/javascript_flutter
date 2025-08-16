@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
-import 'package:javascript/javascript.dart';
+import 'package:javascript_flutter/javascript_flutter.dart';
 import 'package:logging/logging.dart';
 
 import 'runtime_service.dart';

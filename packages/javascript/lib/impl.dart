@@ -1,4 +1,4 @@
-part of 'javascript.dart';
+part of 'javascript_flutter.dart';
 
 class JavaScriptImpl implements JavaScript {
   JavaScriptImpl._(this._platform, this._engineId);
