@@ -34,6 +34,8 @@ abstract interface class JavaScript {
   /// Sets whether the underlying javascript environment is inspectable.
   ///
   /// This is only applicable to some runtime engines.
+  /// Right now only supported on iOS/MacOS when using [javascript_darwin](https://pub.dev/packages/javascript_darwin)
+  /// to inspect the JavaScript context with Safari Web Inspector.
   Future<void> setIsInspectable(bool isInspectable);
 
   /// Adds a new JavaScript channel to the set of enabled channels for the context of the current [JavaScript] instance.
@@ -65,6 +67,8 @@ abstract interface class JavaScript {
   /// will be sent back to the JavaScript code.
   ///
   /// As per the example, the reply back to javascript will be a promise that resolves to `"3"`.
+  ///
+  /// Calling this function more than once with the same [JavaScriptChannelParams.name] will remove the previously set [JavaScriptChannelParams].
   Future<void> addJavaScriptChannel(
     JavaScriptChannelParams javaScriptChannelParams,
   );

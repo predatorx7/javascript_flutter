@@ -10,6 +10,8 @@ import 'package:javascript_platform_interface/javascript_platform_interface.dart
 
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/javascriptcore/jscore_runtime.dart';
 
+import 'src/third_party/flutter_js/lib/javascript_runtime.dart';
+
 class JavaScriptDarwinMessage extends JavaScriptMessage {
   final Object? rawMessage;
 
@@ -62,6 +64,19 @@ class JavaScriptDarwinExecutionException
   }
 }
 
+extension on JavascriptCoreRuntime {
+  bool removeBridge(String channelName) {
+    final channelFunctionCallbacks =
+        JavascriptRuntime.channelFunctionsRegistered[getEngineInstanceId()]!;
+
+    if (!channelFunctionCallbacks.keys.contains(channelName)) return false;
+
+    channelFunctionCallbacks.remove(channelName);
+
+    return true;
+  }
+}
+
 /// The Darwin implementation of [JavaScriptPlatform].
 class JavaScriptDarwin extends JavaScriptPlatform {
   /// Registers this class as the default instance of [JavaScriptPlatform]
@@ -108,6 +123,8 @@ class JavaScriptDarwin extends JavaScriptPlatform {
   ) async {
     final runtime = _requireJsRuntime(javascriptEngineId);
 
+    runtime.removeBridge(javaScriptChannelParams.name);
+
     _enabledChannels[javaScriptChannelParams.name] = javaScriptChannelParams;
 
     return runtime.onMessage(javaScriptChannelParams.name, (
@@ -144,6 +161,8 @@ class JavaScriptDarwin extends JavaScriptPlatform {
     String javascriptEngineId,
     String javaScriptChannelName,
   ) async {
+    final runtime = _requireJsRuntime(javascriptEngineId);
+    runtime.removeBridge(javaScriptChannelName);
     _enabledChannels.remove(javaScriptChannelName);
   }
 
