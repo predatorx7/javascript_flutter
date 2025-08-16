@@ -1,7 +1,6 @@
 name: javascript
 description: Enable your app to evaluate javascript programs in an isolated javascript environment
 version: 1.0.0
-publish_to: none
 
 environment:
   sdk: ^3.6.0
