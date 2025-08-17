@@ -78,11 +78,8 @@ abstract class JavascriptRuntime {
 
   void dispose();
 
-  static Map<String, Map<String, Function(dynamic arg)>>
-      _channelFunctionsRegistered = {};
-
-  static Map<String, Map<String, Function(dynamic arg)>>
-      get channelFunctionsRegistered => _channelFunctionsRegistered;
+  static final Map<String, Map<String, Function(dynamic arg)>>
+      channelFunctionsRegistered = {};
 
   JsEvalResult evaluate(String code, {String? sourceUrl});
 

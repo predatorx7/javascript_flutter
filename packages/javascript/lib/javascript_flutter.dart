@@ -28,6 +28,12 @@ abstract interface class JavaScript {
     return JavaScriptImpl._(p, id);
   }
 
+  /// The id of the javascript environment.
+  String get engineId;
+
+  /// The platform that is used to control the underlying javascript environment.
+  JavaScriptPlatform get platform;
+
   /// Disposes of the underlying javascript environment.
   Future<void> dispose();
 
@@ -81,7 +87,7 @@ abstract interface class JavaScript {
   Future<void> removeJavaScriptChannel(String javaScriptChannelName);
 
   /// Evaluates the given JavaScript code [javaScript] in the context of the current [JavaScript] instance, and returns the result.
-  /// 
+  ///
   /// {@template javascript_run_javascript_returning_result_behavior}
   /// There are multiple possible behaviors based on the output of the expression:
   /// 1. If the JS expression evaluates to a JS String or a Promise of a JS String, then the [Future] resolves to a [Map], [List], [String], [num], [bool], or [Null] if the string can be decoded as JSON, otherwise the [Future] resolves to the string.

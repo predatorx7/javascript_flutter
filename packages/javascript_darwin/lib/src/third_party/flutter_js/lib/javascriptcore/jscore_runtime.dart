@@ -32,7 +32,8 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
     context = JSContext(_globalContext);
 
-    _sendMessageDartFunc = _sendMessage;
+    _sendMessageDartFuncByContext[_globalContext.address] = _sendMessage;
+    _engineInstanceIdByContext[_globalContext.address] = getEngineInstanceId();
 
     Pointer<Utf8> funcNameCString = 'sendMessage'.toNativeUtf8();
     var functionObject = jSObjectMakeFunctionWithCallback(
@@ -73,7 +74,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
         exception.pointer);
     calloc.free(scriptCString);
     if (sourceUrlCString != null) {
-        calloc.free(sourceUrlCString as Pointer<NativeType>);
+      calloc.free(sourceUrlCString as Pointer<NativeType>);
     }
 
     String result;
@@ -104,6 +105,7 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
   void dispose() {
     jSGlobalContextRelease(_globalContext);
     jSContextGroupRelease(_contextGroup);
+    _sendMessageDartFuncByContext.remove(_globalContext.address);
   }
 
   @override
@@ -140,8 +142,9 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
       int argumentCount,
       Pointer<Pointer> arguments,
       Pointer<Pointer> exception) {
-    if (_sendMessageDartFunc != null) {
-      return _sendMessageDartFunc!(
+    final sendMessageDartFunc = _sendMessageDartFuncByContext[ctx.address];
+    if (sendMessageDartFunc != null) {
+      return sendMessageDartFunc(
           ctx, function, thisObject, argumentCount, arguments, exception);
     }
     return nullptr;
@@ -168,7 +171,9 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     return result;
   }
 
-  static jsObject.JSObjectCallAsFunctionCallbackDart? _sendMessageDartFunc;
+  static final Map<int, jsObject.JSObjectCallAsFunctionCallbackDart>
+      _sendMessageDartFuncByContext = {};
+  static final Map<int, String> _engineInstanceIdByContext = {};
 
   Pointer _sendMessage(
       Pointer ctx,

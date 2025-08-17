@@ -1,40 +1,45 @@
 part of 'javascript_flutter.dart';
 
 class JavaScriptImpl implements JavaScript {
-  JavaScriptImpl._(this._platform, this._engineId);
+  JavaScriptImpl._(this.platform, this.engineId);
 
-  final JavaScriptPlatform _platform;
-  final String _engineId;
+  @override
+  final String engineId;
+
+  @override
+  final JavaScriptPlatform platform;
 
   @override
   Future<void> dispose() async {
-    await _platform.dispose(_engineId);
+    await platform.dispose(engineId);
   }
 
   @override
   Future<void> setIsInspectable(bool isInspectable) async {
-    await _platform.setIsInspectable(_engineId, isInspectable);
+    await platform.setIsInspectable(engineId, isInspectable);
   }
 
   @override
   Future<void> addJavaScriptChannel(
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
-    await _platform.addJavaScriptChannel(_engineId, javaScriptChannelParams);
+    await platform.addJavaScriptChannel(engineId, javaScriptChannelParams);
   }
 
   @override
   Future<void> removeJavaScriptChannel(String javaScriptChannelName) async {
-    await _platform.removeJavaScriptChannel(_engineId, javaScriptChannelName);
+    await platform.removeJavaScriptChannel(engineId, javaScriptChannelName);
   }
 
   @override
   Future<Object?> runJavaScriptReturningResult(String javaScript) {
-    return _platform.runJavaScriptReturningResult(_engineId, javaScript);
+    return platform.runJavaScriptReturningResult(engineId, javaScript);
   }
 
   @override
-  Future<Object?> runJavaScriptFromFileReturningResult(String javaScriptFilePath) {
-    return _platform.runJavaScriptFromFileReturningResult(_engineId, javaScriptFilePath);
+  Future<Object?> runJavaScriptFromFileReturningResult(
+      String javaScriptFilePath) {
+    return platform.runJavaScriptFromFileReturningResult(
+        engineId, javaScriptFilePath);
   }
 }

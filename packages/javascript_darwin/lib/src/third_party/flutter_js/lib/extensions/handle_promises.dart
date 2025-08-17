@@ -7,7 +7,7 @@ const REGISTER_PROMISE_FUNCTION = 'FLUTTER_NATIVEJS_REGISTER_PROMISE';
 
 extension HandlePromises on JavascriptRuntime {
   enableHandlePromises() {
-    final fnRegisterPromise = evaluate(""" 
+    final fnRegisterPromise = evaluate("""
      var FLUTTER_NATIVEJS_PENDING_PROMISES = {};
       var FLUTTER_NATIVEJS_PENDING_PROMISES_COUNT = -1;
 
