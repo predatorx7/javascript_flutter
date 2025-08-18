@@ -15,6 +15,7 @@ For applications requiring non-interactive JavaScript evaluation, using this Jav
 - Provides implementation for setTimeout in the javascript environment.
 - Support for javascript channels for sending asynchronous messages from javascript environment to host and then receive a reply asynchronously as Promise.
 - Supports loading javaScript code from a file and then evaluate it for efficient evaluation of large scripts that may be expensive to pass as a String.
+- Minimal contribution to your compiled application size on Android, MacOS, and iOS because the underlying runtime library isn't embedded in your app bundle. Adds approximately ~0.1 MB to your Android App, and ~0.55 MB on iOS/MacOS applications. 
 
 ## Implementation
 
