@@ -12,7 +12,7 @@ The iOS and macOS implementation of [javascript_flutter](https://pub.dev/package
 
 The iOS, & MacOS plugin [javascript_darwin](https://pub.dev/packages/javascript_darwin) depends on [Apple's JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) framework for its [JSContext](https://developer.apple.com/documentation/javascriptcore/jscontext) API.
 
-The implementation uses FFI for communication, taken from [pub.dev:flutter_js](https://pub.dev/packages/flutter_js), and [pub.dev:flutter_jscore](https://pub.dev/packages/flutter_jscore) flutter packages.
+The implementation uses FFI for communication, taken from [pub.dev:flutter_js](https://pub.dev/packages/flutter_js), and [pub.dev:flutter_jscore](https://pub.dev/packages/flutter_jscore) flutter packages  (With some additional improvements).
 
 ## Usage
 
