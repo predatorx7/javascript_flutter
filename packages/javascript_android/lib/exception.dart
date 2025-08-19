@@ -29,6 +29,7 @@ sealed class JavaScriptAndroidExecutionException
     extends JavaScriptExecutionException {
   const JavaScriptAndroidExecutionException(super.message);
 
+  /// The platform exception that caused the execution exception.
   PlatformException get platformException;
 
   static void throwIfMatch(PlatformException e) {
@@ -53,6 +54,7 @@ sealed class JavaScriptAndroidExecutionException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/DataInputException
 final class JavaScriptAndroidDataInputException
     extends JavaScriptAndroidExecutionException {
+  /// Creates a new [JavaScriptAndroidDataInputException] with the given [platformException].
   JavaScriptAndroidDataInputException(this.platformException)
       : super(
           platformException.message ?? 'JavaScript execution failed',
@@ -76,6 +78,7 @@ final class JavaScriptAndroidDataInputException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/EvaluationFailedException
 final class JavaScriptAndroidEvaluationFailedException
     extends JavaScriptAndroidExecutionException {
+  /// Creates a new [JavaScriptAndroidEvaluationFailedException] with the given [platformException].
   JavaScriptAndroidEvaluationFailedException(this.platformException)
       : super(
           platformException.message ?? 'JavaScript execution failed',
@@ -103,6 +106,7 @@ final class JavaScriptAndroidEvaluationFailedException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/EvaluationResultSizeLimitExceededException
 final class JavaScriptAndroidEvaluationResultSizeLimitExceededException
     extends JavaScriptAndroidExecutionException {
+  /// Creates a new [JavaScriptAndroidEvaluationResultSizeLimitExceededException] with the given [platformException].
   JavaScriptAndroidEvaluationResultSizeLimitExceededException(
       this.platformException)
       : super(
@@ -131,8 +135,10 @@ final class JavaScriptAndroidEvaluationResultSizeLimitExceededException
 /// - [JavaScriptAndroidMemoryLimitExceededException]
 sealed class JavaScriptAndroidEnvironmentDeadException
     extends JavaScriptEnvironmentDeadException {
+  /// Creates a new [JavaScriptAndroidEnvironmentDeadException] with the given [message].
   const JavaScriptAndroidEnvironmentDeadException(super.message);
 
+  /// The platform exception that caused the environment dead exception.
   PlatformException get platformException;
 
   static void throwIfMatch(PlatformException e) {
@@ -158,6 +164,7 @@ sealed class JavaScriptAndroidEnvironmentDeadException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/SandboxUnsupportedException
 final class JavaScriptAndroidSandboxUnsupportedException
     extends JavaScriptAndroidEnvironmentDeadException {
+  /// Creates a new [JavaScriptAndroidSandboxUnsupportedException] with the given [platformException].
   const JavaScriptAndroidSandboxUnsupportedException(
     this.platformException,
   ) : super('JavaScriptAndroid javascript environment cannot be used because androidx.javascriptengine.JavaScriptSandbox is not supported');
@@ -181,6 +188,7 @@ final class JavaScriptAndroidSandboxUnsupportedException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/SandboxDeadException
 final class JavaScriptAndroidSandboxDeadException
     extends JavaScriptAndroidEnvironmentDeadException {
+  /// Creates a new [JavaScriptAndroidSandboxDeadException] with the given [platformException].
   const JavaScriptAndroidSandboxDeadException(
     this.platformException,
   ) : super('JavaScriptAndroid javascript environment terminated because androidx.javascriptengine.JavaScriptSandbox is dead because of being closed or due to some crash');
@@ -203,6 +211,7 @@ final class JavaScriptAndroidSandboxDeadException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/IsolateTerminatedException
 final class JavaScriptAndroidIsolateTerminatedException
     extends JavaScriptAndroidEnvironmentDeadException {
+  /// Creates a new [JavaScriptAndroidIsolateTerminatedException] with the given [platformException].
   const JavaScriptAndroidIsolateTerminatedException(
     this.platformException,
   ) : super('JavaScriptAndroid javascript environment terminated because androidx.javascriptengine.JavaScriptIsolate was terminated');
@@ -225,6 +234,7 @@ final class JavaScriptAndroidIsolateTerminatedException
 /// Refer: https://developer.android.com/reference/kotlin/androidx/javascriptengine/MemoryLimitExceededException
 final class JavaScriptAndroidMemoryLimitExceededException
     extends JavaScriptAndroidEnvironmentDeadException {
+  /// Creates a new [JavaScriptAndroidMemoryLimitExceededException] with the given [platformException].
   const JavaScriptAndroidMemoryLimitExceededException(
     this.platformException,
   ) : super('JavaScriptAndroid javascript environment terminated because androidx.javascriptengine.JavaScriptIsolate memory limit was exceeded');
@@ -242,12 +252,15 @@ final class JavaScriptAndroidMemoryLimitExceededException
   }
 }
 
+/// An exception thrown when a JavaScript environment is gone due to it being uninitialized, disposed, crashed or never existed.
 final class JavaScriptAndroidEnvironmentGoneException
     extends JavaScriptEnvironmentClosedException {
+  /// Creates a new [JavaScriptAndroidEnvironmentGoneException] with the given [platformException].
   const JavaScriptAndroidEnvironmentGoneException(this.platformException)
       : super(
             'JavaScriptAndroid javascript environment is unavailable because no active javascript environment was found because it is uninitialized, disposed, crashed, or never existed');
 
+  /// The platform exception that caused the environment gone exception.
   final PlatformException platformException;
 
   static bool isMatch(PlatformException e) {

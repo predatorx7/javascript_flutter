@@ -20,7 +20,7 @@ flutter:
 dependencies:
   flutter:
     sdk: flutter
-  javascript_platform_interface: ^1.0.0
+  javascript_platform_interface: ^2.0.0
   logging: ^1.0.0
   path: ^1.9.0
 
