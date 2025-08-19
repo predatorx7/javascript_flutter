@@ -2,7 +2,7 @@ name: javascript_darwin
 description: An iOS & MacOS implementation of the javascript_flutter plugin
 repository: https://github.com/predatorx7/javascript_flutter/tree/main/packages/javascript_darwin
 issue_tracker: https://github.com/predatorx7/javascript_flutter/issues?q=is%3Aissue+is%3Aopen+label%3A%22p%3A+javascript_darwin%22
-version: 1.0.1
+version: 2.0.0
 
 environment:
   sdk: ^3.6.0
@@ -26,7 +26,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.0
-  javascript_platform_interface: ^1.0.0
+  javascript_platform_interface: ^2.0.0
   logging: ^1.0.0
 
 dev_dependencies:

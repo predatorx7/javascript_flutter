@@ -1,3 +1,8 @@
+# 2.0.0
+
+- Add [JavaScriptUnavailablePlatform] as the default JavaScriptPlatform
+- Update [JavaScriptPlatform] apis & exceptions to be more technically unambiguous
+
 # 1.1.0
 
 - Adds more exceptions that extend [JavaScriptPlatformException]

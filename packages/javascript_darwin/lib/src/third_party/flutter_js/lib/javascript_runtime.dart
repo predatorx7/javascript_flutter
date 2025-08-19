@@ -59,6 +59,9 @@ class FlutterJsPlatformEmpty extends JavascriptRuntime {
   void setInspectable(bool inspectable) {
     throw UnimplementedError();
   }
+
+  @override
+  bool get isDisposed => throw UnimplementedError();
 }
 
 abstract class JavascriptRuntime {
@@ -144,6 +147,7 @@ abstract class JavascriptRuntime {
         String idx = args['timeoutIndex'];
 
         Timer(Duration(milliseconds: duration), () {
+          if (isDisposed) return;
           evaluate("""
             __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx].call();
             delete __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx];
@@ -178,6 +182,8 @@ abstract class JavascriptRuntime {
   bool setupBridge(String channelName, void Function(dynamic args) fn);
 
   String getEngineInstanceId();
+
+  bool get isDisposed;
 
   void setInspectable(bool inspectable);
 }

@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:javascript_darwin/src/third_party/flutter_js/lib/extensions/fetch.dart';
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/extensions/handle_promises.dart';
-import 'package:javascript_darwin/src/third_party/flutter_js/lib/extensions/xhr.dart';
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/js_eval_result.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
@@ -11,6 +9,8 @@ import 'package:javascript_darwin/src/third_party/flutter_js/lib/javascriptcore/
 
 import 'package:javascript_darwin/src/third_party/flutter_js/lib/javascript_runtime.dart';
 import 'package:logging/logging.dart';
+
+import 'exception.dart';
 
 final _logger = Logger('JavaScriptDarwin');
 
@@ -33,41 +33,6 @@ class JavaScriptDarwinMessage extends JavaScriptMessage {
   }
 }
 
-class JavaScriptDarwinExecutionException
-    implements JavaScriptExecutionException {
-  @override
-  final String message;
-  final JsEvalResult jsEvalResult;
-  final JavascriptCoreRuntime runtime;
-  final StackTrace stackTrace;
-
-  const JavaScriptDarwinExecutionException(
-      this.message, this.jsEvalResult, this.runtime, this.stackTrace);
-
-  @override
-  String toString() {
-    return 'JavaScriptDarwinException: $message';
-  }
-
-  factory JavaScriptDarwinExecutionException._fromResult(
-    JavascriptCoreRuntime runtime,
-    JsEvalResult result,
-    StackTrace stackTrace,
-  ) {
-    final StringBuffer sb = StringBuffer(result.stringResult);
-    try {
-      final value = runtime.convertValue(result);
-      if (value is Map && value.isNotEmpty) {
-        sb.write('\n\n\t...${json.encode(value)}');
-      }
-    } catch (e, s) {
-      _logger.severe('Failed to convert value', e, s);
-    }
-    return JavaScriptDarwinExecutionException(
-        sb.toString(), result, runtime, stackTrace);
-  }
-}
-
 extension on JavascriptCoreRuntime {
   bool removeBridge(String channelName) {
     final channelFunctionCallbacks =
@@ -81,6 +46,16 @@ extension on JavascriptCoreRuntime {
   }
 }
 
+class _JavaScriptDarwinState {
+  final JavascriptCoreRuntime runtime;
+  final Map<String, JavaScriptChannelParams> enabledChannels;
+
+  const _JavaScriptDarwinState({
+    required this.runtime,
+    required this.enabledChannels,
+  });
+}
+
 /// The Darwin implementation of [JavaScriptPlatform].
 class JavaScriptDarwin extends JavaScriptPlatform {
   /// Registers this class as the default instance of [JavaScriptPlatform]
@@ -88,81 +63,59 @@ class JavaScriptDarwin extends JavaScriptPlatform {
     JavaScriptPlatform.instance = JavaScriptDarwin();
   }
 
-  final _activeRuntimes = <String, JavascriptCoreRuntime>{};
+  final _activeState = <String, _JavaScriptDarwinState>{};
 
-  static bool isFetchOrXhrEnabled = false;
-
-  /// Returns the underlying engine's instance identifier.
+  /// Returns the underlying javascript environment's identifier.
   ///
   /// This is useful for debugging purposes.
-  String getPlatformEngineInstanceId(String engineId) {
-    final runtime = _requireJsRuntime(engineId);
-    return runtime.getEngineInstanceId();
+  String getPlatformEnvironmentInstanceId(String javaScriptInstanceId) {
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
+    return state.runtime.getEngineInstanceId();
   }
 
   @override
-  Future<void> startJavaScriptEngine(String javascriptEngineId) async {
+  Future<void> startNewJavaScriptEnvironment(
+    String javaScriptInstanceId,
+  ) async {
     // For now using javascriptcore through ffis from flutter_js and flutter_jscore library.
     // Look if we can generate from https://github.com/WebKit/WebKit/blob/main/Source/JavaScriptCore and if its worth it.
     final runtime = JavascriptCoreRuntime();
 
-    _enabledChannelsByEngineId[javascriptEngineId] = {};
+    _activeState[javaScriptInstanceId] = _JavaScriptDarwinState(
+      runtime: runtime,
+      enabledChannels: {},
+    );
 
-    _activeRuntimes[javascriptEngineId] = runtime;
-    if (isFetchOrXhrEnabled) {
-      runtime.enableFetch();
-      runtime.enableXhr();
-    }
     runtime.enableHandlePromises();
   }
 
-  final _enabledChannelsByEngineId =
-      <String, Map<String, JavaScriptChannelParams>>{};
-
-  JavascriptCoreRuntime _requireJsRuntime(String javascriptEngineId) {
-    final runtime = _activeRuntimes[javascriptEngineId];
-    if (runtime == null) {
-      throw ArgumentError.value(
-        javascriptEngineId,
-        'javascriptEngineId',
-        'JavaScript engine with the given id was not found',
-      );
+  _JavaScriptDarwinState _requireJsRuntimeState(String javaScriptInstanceId) {
+    final state = _activeState[javaScriptInstanceId];
+    if (state == null) {
+      throw JavaScriptDarwinEnvironmentNotFoundException(javaScriptInstanceId);
     }
-    return runtime;
+    return state;
   }
 
   Map<String, JavaScriptChannelParams> getEnabledChannels(
-      String javascriptEngineId) {
-    final channels = _enabledChannelsByEngineId[javascriptEngineId];
-
-    if (channels == null) {
-      throw ArgumentError.value(
-        javascriptEngineId,
-        'javascriptEngineId',
-        'Enabled channels for the given engine id was not found',
-      );
-    }
-
-    return channels;
+    String javaScriptInstanceId,
+  ) {
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
+    return state.enabledChannels;
   }
 
   @override
   Future<void> addJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
-    final runtime = _requireJsRuntime(javascriptEngineId);
-
-    runtime.removeBridge(javaScriptChannelParams.name);
-
-    final enabledChannels = getEnabledChannels(javascriptEngineId);
-
-    enabledChannels[javaScriptChannelParams.name] = javaScriptChannelParams;
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
 
     Future<Object?> onChannelRawMessage(
       Object? params,
     ) async {
-      final enabledChannels = getEnabledChannels(javascriptEngineId);
+      // Don't use reference of enabledChannels from parent scope to avoid memory leaks or race conditions.
+      final enabledChannels = getEnabledChannels(javaScriptInstanceId);
       final channel = enabledChannels[javaScriptChannelParams.name];
       if (channel == null) {
         _logger.warning(
@@ -176,30 +129,44 @@ class JavaScriptDarwin extends JavaScriptPlatform {
       return reply.message;
     }
 
-    return runtime.onMessage(javaScriptChannelParams.name, onChannelRawMessage);
+    final runtime = state.runtime;
+
+    runtime.removeBridge(javaScriptChannelParams.name);
+
+    final enabledChannels = state.enabledChannels;
+
+    enabledChannels[javaScriptChannelParams.name] = javaScriptChannelParams;
+
+    return runtime.onMessage(
+      javaScriptChannelParams.name,
+      onChannelRawMessage,
+    );
   }
 
   @override
   Future<void> removeJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptChannelName,
   ) async {
-    final runtime = _requireJsRuntime(javascriptEngineId);
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
+    final runtime = state.runtime;
     runtime.removeBridge(javaScriptChannelName);
-    final enabledChannels = _enabledChannelsByEngineId[javascriptEngineId];
-    enabledChannels?.remove(javaScriptChannelName);
+    final enabledChannels = state.enabledChannels;
+    enabledChannels.remove(javaScriptChannelName);
   }
 
   @override
   Future<Object?> runJavaScriptReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScript,
   ) async {
-    final runtime = _requireJsRuntime(javascriptEngineId);
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
+    final runtime = state.runtime;
+
     try {
       final result = await runtime.evaluateAsync(javaScript);
       if (result.isError) {
-        throw JavaScriptDarwinExecutionException._fromResult(
+        throw JavaScriptDarwinExecutionException.fromResult(
             runtime, result, StackTrace.current);
       }
 
@@ -213,7 +180,7 @@ class JavaScriptDarwin extends JavaScriptPlatform {
 
       final promiseResult = await runtime.handlePromise(result);
       if (promiseResult.isError) {
-        throw JavaScriptDarwinExecutionException._fromResult(
+        throw JavaScriptDarwinExecutionException.fromResult(
           runtime,
           promiseResult,
           StackTrace.current,
@@ -230,7 +197,7 @@ class JavaScriptDarwin extends JavaScriptPlatform {
         rethrow;
       }
       if (e is JsEvalResult) {
-        throw JavaScriptDarwinExecutionException._fromResult(
+        throw JavaScriptDarwinExecutionException.fromResult(
           runtime,
           e,
           s,
@@ -242,33 +209,30 @@ class JavaScriptDarwin extends JavaScriptPlatform {
 
   @override
   Future<Object?> runJavaScriptFromFileReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptFilePath,
   ) async {
     final file = File(javaScriptFilePath);
     final javaScript = await file.readAsString();
-    return runJavaScriptReturningResult(javascriptEngineId, javaScript);
+    return runJavaScriptReturningResult(javaScriptInstanceId, javaScript);
   }
 
   @override
   Future<void> setIsInspectable(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     bool isInspectable,
   ) async {
-    final runtime = _requireJsRuntime(javascriptEngineId);
+    final runtime = _requireJsRuntimeState(javaScriptInstanceId).runtime;
     runtime.setInspectable(isInspectable);
   }
 
   @override
-  Future<void> dispose(String javascriptEngineId) async {
-    final runtime = _requireJsRuntime(javascriptEngineId);
+  Future<void> dispose(String javaScriptInstanceId) async {
+    final state = _requireJsRuntimeState(javaScriptInstanceId);
+    final runtime = state.runtime;
     runtime.dispose();
-
-    _activeRuntimes.remove(javascriptEngineId);
-
-    final enabledChannels =
-        _enabledChannelsByEngineId.remove(javascriptEngineId);
-
-    enabledChannels?.clear();
+    _activeState.remove(javaScriptInstanceId);
+    final enabledChannels = state.enabledChannels;
+    enabledChannels.clear();
   }
 }

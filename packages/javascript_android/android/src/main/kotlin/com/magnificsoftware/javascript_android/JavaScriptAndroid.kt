@@ -7,6 +7,8 @@ import androidx.javascriptengine.IsolateStartupParameters
 import androidx.javascriptengine.IsolateTerminatedException
 import androidx.javascriptengine.JavaScriptIsolate
 import androidx.javascriptengine.JavaScriptSandbox
+import androidx.javascriptengine.MemoryLimitExceededException
+import androidx.javascriptengine.SandboxDeadException
 import androidx.javascriptengine.TerminationInfo
 import com.google.common.util.concurrent.FutureCallback
 import com.google.common.util.concurrent.Futures
@@ -54,9 +56,29 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
                         val jsIsolate = sandbox.createIsolate(startupParams)
                         activeJsIsolates.put(javascriptEngineId, jsIsolate)
                         callback(Result.success(Unit))
+
+                        // refer: https://developer.android.com/develop/ui/views/layout/webapps/jsengine#handling-sandbox-crashes
+                        val  terminationCallback: Consumer<TerminationInfo> = object : Consumer<TerminationInfo> {
+                            override fun accept(value: TerminationInfo) {
+                                Log.e(TAG, "The isolate crashed: $value")
+                                val ex = when (value.status) {
+                                    TerminationInfo.STATUS_SANDBOX_DEAD -> SandboxDeadException(this.toString())
+                                    TerminationInfo.STATUS_MEMORY_LIMIT_EXCEEDED -> MemoryLimitExceededException(this.toString())
+                                    else -> IsolateTerminatedException(this.toString())
+                                }
+                                cleanUpIfSandboxDead(ex)
+                                activeJsIsolates.remove(javascriptEngineId)
+                            }
+                        }
+                        try {
+                            jsIsolate.addOnTerminatedCallback(getMainExecutor(), terminationCallback)
+                        } catch (e: IllegalStateException) {
+                            Log.w("JavaScriptAndroid", "Failed to add termination callback", e)
+                        }
                     }
 
                     override fun onFailure(t: Throwable) {
+                        cleanUpIfSandboxDead(t)
                         callback(Result.failure(t))
                     }
                 }, getMainExecutor()
@@ -83,6 +105,7 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
             activeJsIsolates.remove(javascriptEngineId)
             callback(Result.success(Unit))
         } catch (e: Exception) {
+            cleanUpIfSandboxDead(e)
             if (e is IsolateTerminatedException) {
                 // its okay
                 callback(Result.success(Unit))
@@ -114,19 +137,6 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
 
             var didSubmitResponse = false
 
-            val  terminationCallback: Consumer<TerminationInfo> = object : Consumer<TerminationInfo> {
-                override fun accept(value: TerminationInfo) {
-                    Log.e(TAG, "The isolate crashed: $value")
-                    if (!didSubmitResponse) {
-                        didSubmitResponse = true
-                        callback(Result.failure(IsolateTerminatedException(value.toString())))
-                    }
-                    activeJsIsolates.remove(javascriptEngineId)
-                }
-            }
-
-            js.addOnTerminatedCallback(getMainExecutor(), terminationCallback)
-
             Futures.addCallback(
                 js.evaluateJavaScriptAsync(javaScript), object : FutureCallback<String> {
                     override fun onSuccess(result: String) {
@@ -139,13 +149,13 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
                     }
 
                     override fun onFailure(t: Throwable) {
+                        cleanUpIfSandboxDead(t)
                         if (didSubmitResponse) {
                             Log.e("JavaScriptAndroid", "An error was received when didSubmitResponse is true", t)
                             return
                         }
                         didSubmitResponse = true
                         callback(Result.failure(t))
-                        js.removeOnTerminatedCallback(terminationCallback)
                     }
                 }, getMainExecutor()
             )
@@ -166,14 +176,30 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
         }
     }
 
-    fun onDetachedFromActivity() {
+    fun cleanUpIfSandboxDead(t: Throwable) {
+        if (t is SandboxDeadException) {
+            try {
+                cleanUpSandBox()
+            } catch (e: Exception) {
+                Log.e("JavaScriptAndroid", "Failed to clean up sandbox", e)
+            }
+        }
+    }
+
+    fun cleanUpSandBox() {
+        if (Companion.sandbox == null) return;
         val sandbox = getJSSandbox()
+        Companion.sandbox = null;
         Futures.addCallback(
             sandbox, object : FutureCallback<JavaScriptSandbox> {
                 override fun onSuccess(sandbox: JavaScriptSandbox) {
-                     Log.i("JavaScriptAndroid", "Closing sandbox")
+                    Log.i("JavaScriptAndroid", "Closing sandbox")
                     activeJsIsolates.clear()
-                    sandbox.close()
+                    try {
+                        sandbox.close()
+                    } catch (e: Throwable) {
+                        Log.e("JavaScriptAndroid", "Failed to close sandbox", e)
+                    }
                 }
                 override fun onFailure(t: Throwable) {
                     Log.e("JavaScriptAndroid", "Failed to close sandbox", t)
@@ -181,5 +207,4 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
             }, getMainExecutor()
         )
     }
-
 }

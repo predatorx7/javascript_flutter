@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
+import 'exception.dart';
 import 'src/parse.dart';
 import 'src/host/state.dart';
 import 'src/pigeons/messages.pigeon.dart';
@@ -18,88 +20,110 @@ class JavaScriptAndroid extends JavaScriptPlatform {
 
   final _activeEngineHostState = <String, EngineHostState>{};
 
-  EngineHostState _requireEngineState(String javascriptEngineId) {
-    if (!_activeEngineHostState.containsKey(javascriptEngineId)) {
-      throw Exception('Engine by id "$javascriptEngineId" is not found');
+  EngineHostState _requireEngineState(String javaScriptInstanceId) {
+    if (!_activeEngineHostState.containsKey(javaScriptInstanceId)) {
+      throw JavaScriptAndroidEnvironmentNotFoundException(javaScriptInstanceId);
     }
-    return _activeEngineHostState[javascriptEngineId]!;
+    return _activeEngineHostState[javaScriptInstanceId]!;
   }
 
   @override
-  Future<void> startJavaScriptEngine(
-    String javascriptEngineId, {
+  Future<void> startNewJavaScriptEnvironment(
+    String javaScriptInstanceId, {
     Duration messageListenerInterval = const Duration(milliseconds: 50),
     bool implementJsSetTimeout = true,
   }) async {
-    await pigeonPlatformApi.startJavaScriptEngine(javascriptEngineId);
+    await _usePlatform(
+        (api) => api.startJavaScriptEngine(javaScriptInstanceId));
     final engineHostState = await EngineHostState.create(
-      engineId: javascriptEngineId,
+      engineId: javaScriptInstanceId,
       messageListenerInterval: messageListenerInterval,
       implementJsSetTimeout: implementJsSetTimeout,
       runJavaScript: (javaScript) {
-        return runJavaScriptReturningResult(javascriptEngineId, javaScript);
+        return runJavaScriptReturningResult(javaScriptInstanceId, javaScript);
       },
     );
-    _activeEngineHostState[javascriptEngineId] = engineHostState;
+    _activeEngineHostState[javaScriptInstanceId] = engineHostState;
   }
 
   @override
   Future<void> addJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
-    final engineState = _requireEngineState(javascriptEngineId);
+    final engineState = _requireEngineState(javaScriptInstanceId);
     await engineState.addChannel(javaScriptChannelParams);
   }
 
   @override
   Future<void> removeJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptChannelName,
   ) async {
-    final engineState = _requireEngineState(javascriptEngineId);
+    final engineState = _requireEngineState(javaScriptInstanceId);
     engineState.removeChannel(javaScriptChannelName);
   }
 
   @override
-  Future<void> dispose(String javascriptEngineId) {
-    final engineState = _requireEngineState(javascriptEngineId);
+  Future<void> dispose(String javaScriptInstanceId) {
+    final engineState = _requireEngineState(javaScriptInstanceId);
     engineState.dispose();
-    _activeEngineHostState.remove(javascriptEngineId);
-    return pigeonPlatformApi.dispose(javascriptEngineId);
+    _activeEngineHostState.remove(javaScriptInstanceId);
+    return _usePlatform((api) => api.dispose(javaScriptInstanceId));
   }
 
   @override
   Future<Object?> runJavaScriptReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScript,
   ) async {
-    final result = await pigeonPlatformApi.runJavaScriptReturningResult(
-      javascriptEngineId,
-      javaScript,
-    );
+    final result = await _usePlatform((api) {
+      return api.runJavaScriptReturningResult(
+        javaScriptInstanceId,
+        javaScript,
+      );
+    });
 
     return parseValue(result);
   }
 
   @override
   Future<Object?> runJavaScriptFromFileReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptFilePath,
   ) async {
-    final result = await pigeonPlatformApi.runJavaScriptFromFileReturningResult(
-      javascriptEngineId,
-      javaScriptFilePath,
-    );
+    final result = await _usePlatform((api) {
+      return api.runJavaScriptFromFileReturningResult(
+        javaScriptInstanceId,
+        javaScriptFilePath,
+      );
+    });
 
     return parseValue(result);
   }
 
   @override
-  Future<void> setIsInspectable(String javascriptEngineId, bool isInspectable) {
-    return pigeonPlatformApi.setIsInspectable(
-      javascriptEngineId,
-      isInspectable,
-    );
+  Future<void> setIsInspectable(
+      String javaScriptInstanceId, bool isInspectable) {
+    return _usePlatform((api) {
+      return api.setIsInspectable(
+        javaScriptInstanceId,
+        isInspectable,
+      );
+    });
+  }
+
+  Future<T> _usePlatform<T>(
+      Future<T> Function(JavaScriptAndroidPlatformApi api) usePlatform) async {
+    try {
+      return await usePlatform(pigeonPlatformApi);
+    } on PlatformException catch (e) {
+      JavaScriptAndroidExecutionException.throwIfMatch(e);
+      JavaScriptAndroidEnvironmentDeadException.throwIfMatch(e);
+      if (JavaScriptAndroidEnvironmentGoneException.isMatch(e)) {
+        throw JavaScriptAndroidEnvironmentGoneException(e);
+      }
+      rethrow;
+    }
   }
 }

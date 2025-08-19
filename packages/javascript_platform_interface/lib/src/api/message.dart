@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
 /// A message that was sent by JavaScript code running in a [JavaScriptPlatform] environment.

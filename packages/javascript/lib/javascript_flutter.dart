@@ -19,17 +19,34 @@ abstract interface class JavaScript {
   static Future<JavaScript> createNew({JavaScriptPlatform? platform}) async {
     final p = platform ?? JavaScriptPlatform.instance;
 
-    // A unique id for identifying the javascript environment.
+    // A unique id for identifying this javascript instance.
     final id = Object().hashCode.toString();
 
     // Start a new javascript environment using the platform.
-    await p.startJavaScriptEngine(id);
+    await p.startNewJavaScriptEnvironment(id);
 
-    return JavaScriptImpl._(p, id);
+    return _UsableJavaScript._(p, id);
   }
 
   /// The id of the javascript environment.
-  String get engineId;
+  @Deprecated(
+      'The `engineId` property has been renamed to `instanceId`, use `instanceId` instead')
+  String get engineId => instanceId;
+
+  /// The id of the javascript instance.
+  String get instanceId;
+
+  /// Whether the javascript instance is functional.
+  ///
+  /// A javascript instance is functional if it is available and can be used.
+  /// Any further operations on a non-functional javascript instance that has become defunct will throw an [JavaScriptUnavailablePlatformException].
+  bool get isFunctional;
+
+  /// The reason why the javascript instance is not functional.
+  ///
+  /// If the javascript instance is functional, this will be `null`.
+  /// If the javascript instance is not functional, this will be an exception, likely an [JavaScriptUnavailablePlatformException], which made the instance non-functional.
+  Object? get unavailableReason;
 
   /// The platform that is used to control the underlying javascript environment.
   JavaScriptPlatform get platform;
@@ -39,7 +56,7 @@ abstract interface class JavaScript {
 
   /// Sets whether the underlying javascript environment is inspectable.
   ///
-  /// This is only applicable to some runtime engines.
+  /// This is only applicable to some javascript environments and platforms.
   /// Right now only supported on iOS/MacOS when using [javascript_darwin](https://pub.dev/packages/javascript_darwin)
   /// to inspect the JavaScript context with Safari Web Inspector.
   Future<void> setIsInspectable(bool isInspectable);
@@ -51,7 +68,7 @@ abstract interface class JavaScript {
   ///
   /// For example, after adding the following JavaScript channel:
   /// ```dart
-  /// engine.addJavaScriptChannel(
+  /// javascript.addJavaScriptChannel(
   ///   JavaScriptChannelParams(
   ///     name: 'Sum',
   ///     onMessageReceived: (message) {

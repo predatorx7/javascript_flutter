@@ -101,8 +101,14 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     );
   }
 
+  bool _isDisposed = false;
+
+  @override
+  bool get isDisposed => _isDisposed;
+
   @override
   void dispose() {
+    _isDisposed = true;
     jSGlobalContextRelease(_globalContext);
     jSContextGroupRelease(_contextGroup);
     _sendMessageDartFuncByContext.remove(_globalContext.address);

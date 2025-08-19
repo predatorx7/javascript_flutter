@@ -1,4 +1,10 @@
-import 'package:javascript_platform_interface/src/method_channel_javascript.dart';
+/// A common platform interface for the [`javascript_flutter`](https://pub.dev/packages/javascript_flutter) plugin's [JavaScript] API.
+///
+/// This interface allows platform-specific implementations of the
+/// [`javascript_flutter`](https://pub.dev/packages/javascript_flutter) plugin, as well as the plugin itself, to ensure they are supporting the same interface.
+library;
+
+import 'package:javascript_platform_interface/src/unavailable_javascript.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'src/api/api.dart';
@@ -18,11 +24,15 @@ abstract class JavaScriptPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static JavaScriptPlatform _instance = MethodChannelJavaScript();
+  static JavaScriptPlatform _instance = JavaScriptUnavailablePlatform(
+    JavaScriptEnvironmentUninitializedException(
+      'No functioning JavaScript platform instance is available',
+    ),
+  );
 
   /// The default instance of [JavaScriptPlatform] to use.
   ///
-  /// Defaults to [MethodChannelJavaScript].
+  /// Defaults to [JavaScriptUnavailablePlatform].
   static JavaScriptPlatform get instance => _instance;
 
   /// Platform-specific plugins should set this with their own platform-specific
@@ -32,35 +42,35 @@ abstract class JavaScriptPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  /// Starts a new JavaScript environment with isolated state by id [javascriptEngineId].
+  /// Starts a new JavaScript environment with isolated state by id [javaScriptInstanceId].
   ///
-  /// The [javascriptEngineId] is used to identify the environment and is used to
+  /// The [javaScriptInstanceId] is used to identify the environment and is used to
   /// communicate with the environment.
-  Future<void> startJavaScriptEngine(String javascriptEngineId);
+  Future<void> startNewJavaScriptEnvironment(String javaScriptInstanceId);
 
   /// Sets whether the underlying JavaScript environment is inspectable.
-  Future<void> setIsInspectable(String javascriptEngineId, bool isInspectable);
+  Future<void> setIsInspectable(String javaScriptInstanceId, bool isInspectable);
 
   /// Evaluates the given JavaScript code [javaScript] in the context of the javascript environment
-  /// with id [javascriptEngineId], and returns the result.
+  /// with id [javaScriptInstanceId], and returns the result.
   ///
   /// The Future completes with an error if a JavaScript error occurred, or if the
   /// type the given expression evaluates to is unsupported.
-  Future<Object?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript);
+  Future<Object?> runJavaScriptReturningResult(String javaScriptInstanceId, String javaScript);
 
   /// Loads the content of of file from [javaScriptFilePath] and evaluates it as javascript code in the context of the
-  /// javascript environment with id [javascriptEngineId], and returns the result.
+  /// javascript environment with id [javaScriptInstanceId], and returns the result.
   ///
   /// The Future completes with an error if a JavaScript error occurred, or if the
   /// type the given expression evaluates to is unsupported.
   Future<Object?> runJavaScriptFromFileReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptFilePath,
   );
 
   /// Adds a new JavaScript channel to the set of enabled channels.
   Future<void> addJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     JavaScriptChannelParams javaScriptChannelParams,
   );
 
@@ -69,8 +79,8 @@ abstract class JavaScriptPlatform extends PlatformInterface {
   ///
   /// This disables the channel with the matching name if it was previously
   /// enabled through the [addJavaScriptChannel].
-  Future<void> removeJavaScriptChannel(String javascriptEngineId, String javaScriptChannelName);
+  Future<void> removeJavaScriptChannel(String javaScriptInstanceId, String javaScriptChannelName);
 
-  /// Disposes of the JavaScript environment with id [javascriptEngineId].
-  Future<void> dispose(String javascriptEngineId);
+  /// Disposes of the JavaScript environment with id [javaScriptInstanceId].
+  Future<void> dispose(String javaScriptInstanceId);
 }

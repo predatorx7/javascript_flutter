@@ -1,46 +1,46 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
 class JavaScriptMock extends JavaScriptPlatform {
   @override
-  Future<void> startJavaScriptEngine(String javascriptEngineId) async {
+  Future<void> startNewJavaScriptEnvironment(String javaScriptInstanceId) async {
     return Future.value();
   }
 
   @override
-  Future<void> setIsInspectable(String javascriptEngineId, bool isInspectable) async {
+  Future<void> setIsInspectable(String javaScriptInstanceId, bool isInspectable) async {
     return Future.value();
   }
 
   @override
   Future<void> addJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     JavaScriptChannelParams javaScriptChannelParams,
   ) async {
     return Future.value();
   }
 
   @override
-  Future<void> dispose(String javascriptEngineId) async {
+  Future<void> dispose(String javaScriptInstanceId) async {
     return Future.value();
   }
 
   @override
   Future<void> removeJavaScriptChannel(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptChannelName,
   ) async {
     return Future.value();
   }
 
   @override
-  Future<Object?> runJavaScriptReturningResult(String javascriptEngineId, String javaScript) async {
+  Future<Object?> runJavaScriptReturningResult(String javaScriptInstanceId, String javaScript) async {
     return Future.value();
   }
 
   @override
   Future<Object?> runJavaScriptFromFileReturningResult(
-    String javascriptEngineId,
+    String javaScriptInstanceId,
     String javaScriptFilePath,
   ) async {
     return Future.value();
@@ -48,13 +48,18 @@ class JavaScriptMock extends JavaScriptPlatform {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
   group('JavaScriptPlatformInterface', () {
     late JavaScriptPlatform javascriptPlatform;
 
     setUp(() {
       javascriptPlatform = JavaScriptMock();
       JavaScriptPlatform.instance = javascriptPlatform;
+    });
+
+    test('startNewEnvironment', () async {
+      await javascriptPlatform.startNewJavaScriptEnvironment(
+        'test',
+      );
     });
 
     test('addJavaScriptChannel', () async {

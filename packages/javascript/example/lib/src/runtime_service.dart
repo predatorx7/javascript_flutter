@@ -30,9 +30,11 @@ class JsRuntimeService {
     _jsRuntime.dispose();
   }
 
-  Future<void> useJsRuntime(Future<void> Function(JavaScript) onEngine) async {
+  Future<void> useJsRuntime(
+    Future<void> Function(JavaScript) onJsEnvironment,
+  ) async {
     try {
-      return await onEngine(_jsRuntime);
+      return await onJsEnvironment(_jsRuntime);
     } catch (e, s) {
       _log.severe('Error when running a callback with [useJsRuntime]', e, s);
     }

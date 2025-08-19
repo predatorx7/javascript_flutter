@@ -67,11 +67,9 @@ class EngineHostState {
   }
 
   Future<Map<String, Object?>> _getPendingMessages() async {
-    final channelPendingMessages = _enabledChannels.keys
-        .map((channelName) {
-          return '"$channelName": globalThis.getPendingMessages("$channelName")';
-        })
-        .join(',');
+    final channelPendingMessages = _enabledChannels.keys.map((channelName) {
+      return '"$channelName": globalThis.getPendingMessages("$channelName")';
+    }).join(',');
 
     final messages =
         await _runJavaScript('JSON.stringify({$channelPendingMessages})')
@@ -179,7 +177,8 @@ class EngineHostState {
     _enabledChannels[channelName] = channelParams;
     _ensureMessageListenerActive();
     try {
-      await _runJavaScript('''globalThis.HostMessengerRegisteredChannels["$channelName"] = new HostMessenger();
+      await _runJavaScript(
+          '''globalThis.HostMessengerRegisteredChannels["$channelName"] = new HostMessenger();
       // for compatibility with popular webview plugins receiving messages
       globalThis["$channelName"] = globalThis.HostMessengerRegisteredChannels["$channelName"];''');
       _logger.finest('Channel $channelName added');

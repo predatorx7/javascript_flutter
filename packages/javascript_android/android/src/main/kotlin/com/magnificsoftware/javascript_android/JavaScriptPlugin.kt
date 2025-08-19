@@ -38,8 +38,8 @@ public class JavaScriptPlugin : FlutterPlugin, ActivityAware {
     }
 
     override fun onDetachedFromActivity() {
-        Log.i("JavaScriptPlugin", "closing javascript android on detached from activity")
-        javaScriptAndroid?.onDetachedFromActivity()
+        Log.i("JavaScriptPlugin", "closing javascript android js sandbox on detached from activity")
+        javaScriptAndroid?.cleanUpSandBox()
     }
 
     companion object {
