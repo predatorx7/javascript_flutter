@@ -106,6 +106,73 @@ final customPlatform = MyCustomJavaScriptPlatform();
 final javascript = await JavaScript.createNew(platform: customPlatform);
 ```
 
+#### JavaScript Instance Properties
+
+##### `instanceId`
+
+The unique identifier of the JavaScript instance.
+
+**Type:** `String`
+
+**Example:**
+```dart
+final javascript = await JavaScript.createNew();
+print(javascript.instanceId); // e.g., "123456789"
+```
+
+##### `isFunctional`
+
+Whether the JavaScript instance is functional and can be used.
+
+**Type:** `bool`
+
+A JavaScript instance is functional if it is available and can be used. Any further operations on a non-functional JavaScript instance that has become defunct will throw a `JavaScriptUnavailablePlatformException`.
+
+**Example:**
+```dart
+final javascript = await JavaScript.createNew();
+print(javascript.isFunctional); // true
+
+// After disposal or if the instance becomes unavailable
+await javascript.dispose();
+print(javascript.isFunctional); // false
+```
+
+##### `unavailableReason`
+
+The reason why the JavaScript instance is not functional.
+
+**Type:** `Object?`
+
+If the JavaScript instance is functional, this will be `null`. If the JavaScript instance is not functional, this will be an exception, likely a `JavaScriptUnavailablePlatformException`, which made the instance non-functional.
+
+**Example:**
+```dart
+final javascript = await JavaScript.createNew();
+
+if (!javascript.isFunctional) {
+  print('JavaScript instance is not functional: ${javascript.unavailableReason}');
+}
+
+// After disposal
+await javascript.dispose();
+if (javascript.unavailableReason != null) {
+  print('Instance became unavailable due to: ${javascript.unavailableReason}');
+}
+```
+
+##### `platform`
+
+The platform that is used to control the underlying JavaScript environment.
+
+**Type:** `JavaScriptPlatform`
+
+**Example:**
+```dart
+final javascript = await JavaScript.createNew();
+print(javascript.platform); // The platform instance being used
+```
+
 #### JavaScript Code Execution
 
 ##### `runJavaScriptReturningResult(String javaScript)`
@@ -304,8 +371,41 @@ try {
     const obj = null;
     obj.someMethod();
   ''');
+} on JavaScriptPlatformException catch (e) {
+  print('JavaScript platform error: $e');
 } catch (e) {
-  print('JavaScript execution failed: $e');
+  print('JavaScript unknown error: $e');
+}
+```
+
+#### JavaScriptUnavailablePlatformException
+
+This exception is thrown when a JavaScript instance becomes unavailable (e.g., due to crashing or being disposed) and you attempt to perform operations on it.
+
+**When it occurs:**
+- When calling methods on a disposed JavaScript instance
+- When the underlying JavaScript environment crashes
+- When the JavaScript instance becomes defunct for any reason
+
+**Example:**
+```dart
+final javascript = await JavaScript.createNew();
+await javascript.dispose();
+
+try {
+  // This will throw JavaScriptUnavailablePlatformException
+  await javascript.runJavaScriptReturningResult('console.log("hello")');
+} catch (e) {
+  if (e is JavaScriptUnavailablePlatformException) {
+    print('JavaScript instance is no longer available: $e');
+  }
+}
+
+// Check if instance is functional before using it
+if (javascript.isFunctional) {
+  await javascript.runJavaScriptReturningResult('console.log("hello")');
+} else {
+  print('Instance is not functional: ${javascript.unavailableReason}');
 }
 ```
 
