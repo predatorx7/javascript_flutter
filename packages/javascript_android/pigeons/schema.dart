@@ -13,22 +13,36 @@ import 'package:pigeon/pigeon.dart';
     copyrightHeader: 'pigeons/copyright.txt',
   ),
 )
+@ProxyApi()
+abstract class JavaScriptAndroidConsoleMessageHandler {
+  // ignore: avoid_unused_constructor_parameters
+  JavaScriptAndroidConsoleMessageHandler();
+
+  /// Handles callbacks messages from JavaScript.
+  late void Function(String message) onMessage;
+}
+
 @HostApi()
 abstract class JavaScriptAndroidPlatformApi {
   @async
-  void startJavaScriptEngine(String javascriptEngineId);
+  void startJavaScriptEnvironment(String javascriptInstanceId);
   @async
-  void dispose(String javascriptEngineId);
+  void dispose(String javascriptInstanceId);
   @async
   String? runJavaScriptReturningResult(
-    String javascriptEngineId,
+    String javascriptInstanceId,
     String javaScript,
   );
   @async
   String? runJavaScriptFromFileReturningResult(
-    String javascriptEngineId,
+    String javascriptInstanceId,
     String javaScriptFilePath,
   );
   @async
-  void setIsInspectable(String javascriptEngineId, bool isInspectable);
+  void setIsInspectable(String javascriptInstanceId, bool isInspectable);
+  @async
+  bool setJavaScriptConsoleMessageHandler(
+    String javascriptInstanceId,
+    int mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier,
+  );
 }

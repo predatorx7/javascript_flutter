@@ -13,6 +13,7 @@ class EngineHostState {
     required this.messageListenerInterval,
     required this.engineId,
     required RunJavascriptCallback runJavaScript,
+    required this.useConsoleMessagingHack,
   }) {
     _runJavaScript = (String javascript) {
       if (_isDisposed) return Future.value(null);
@@ -20,19 +21,26 @@ class EngineHostState {
     };
   }
 
+  static const _envExport = 'globalThis.JavaScriptAndroid';
+
   static Future<EngineHostState> create({
     required String engineId,
     required Duration messageListenerInterval,
     bool implementJsSetTimeout = true,
     required RunJavascriptCallback runJavaScript,
+    // A hack that uses console message handler to receive new channel messages
+    // for more efficient communication because jetpack javascript engine doesn't
+    // have an api to set javascript interface in javascript environment
+    required bool useConsoleMessagingHack,
   }) async {
     final state = EngineHostState._(
       messageListenerInterval: messageListenerInterval,
       engineId: engineId,
       runJavaScript: runJavaScript,
+      useConsoleMessagingHack: useConsoleMessagingHack,
     );
 
-    await state._runJavaScript(_MESSAGING_SCRIPT);
+    await state._runJavaScript(_MESSAGING_SCRIPT(useConsoleMessagingHack));
     if (implementJsSetTimeout) {
       await state._runJavaScript(_TIMEOUT_SCRIPT);
       await state._setupJsSetTimeoutMessaging();
@@ -43,6 +51,7 @@ class EngineHostState {
 
   final String engineId;
   final Duration messageListenerInterval;
+  final bool useConsoleMessagingHack;
 
   late final RunJavascriptCallback _runJavaScript;
 
@@ -56,6 +65,7 @@ class EngineHostState {
     if (_timer != null) {
       return;
     }
+    if (useConsoleMessagingHack) return;
     _startTimer();
   }
 
@@ -66,9 +76,24 @@ class EngineHostState {
     _timer = Timer.periodic(messageListenerInterval, _onTimerTick);
   }
 
-  Future<Map<String, Object?>> _getPendingMessages() async {
+  Future<Map<String, Object?>> getPendingMessages() async {
     final channelPendingMessages = _enabledChannels.keys.map((channelName) {
-      return '"$channelName": globalThis.getPendingMessages("$channelName")';
+      return '"$channelName": $_envExport.getPendingMessages("$channelName")';
+    }).join(',');
+
+    final messages =
+        await _runJavaScript('JSON.stringify({$channelPendingMessages})')
+            as Map<String, Object?>;
+
+    return messages;
+  }
+
+  Future<Map<String, Object?>> getPendingMessagesBy(
+    String channelName,
+    num id,
+  ) async {
+    final channelPendingMessages = [channelName].map((channelName) {
+      return '"$channelName": $_envExport.getPendingMessages("$channelName").filter(it => it.id == $id)';
     }).join(',');
 
     final messages =
@@ -87,41 +112,44 @@ class EngineHostState {
     }
     try {
       // check for pending messages
-      final messages = await _getPendingMessages();
-      for (final message in messages.entries) {
-        // send messages to channels and wait for responses
-        final channelName = message.key;
-        final events = message.value as List<Object?>;
-        final channel = _enabledChannels[channelName];
-        if (channel == null) {
-          _logger.severe('Channel $channelName not found');
-          continue;
-        }
-        for (final event in events) {
-          if (event is! Map<String, Object?>) {
-            _logger.severe(
-              'Invalid event received for channel $channelName: $event',
-            );
-            continue;
-          }
-          final id = event['id'] as int;
-          final message = event['message'] as String;
-          final processingEventIds = _processingMessages.putIfAbsent(
-            channelName,
-            () => {},
-          );
-          if (!processingEventIds.contains(id)) {
-            _processMessage(channel, message, channelName, id);
-            processingEventIds.add(id);
-          }
-        }
-        // resolve/reject messages
-      }
+      final messages = await getPendingMessages();
+      onChannelMessages(messages);
     } catch (e, s) {
       _logger.severe('Error in message listener', e, s);
     }
     // resume timer
     _startTimer();
+  }
+
+  void onChannelMessages(Map<String, Object?> messages) {
+    for (final message in messages.entries) {
+      // send messages to channels and wait for responses
+      final channelName = message.key;
+      final events = message.value as List<Object?>;
+      final channel = _enabledChannels[channelName];
+      if (channel == null) {
+        _logger.severe('Channel $channelName not found');
+        continue;
+      }
+      for (final event in events) {
+        if (event is! Map<String, Object?>) {
+          _logger.severe(
+            'Invalid event received for channel $channelName: $event',
+          );
+          continue;
+        }
+        final id = event['id'] as int;
+        final message = event['message'] as String;
+        final processingEventIds = _processingMessages.putIfAbsent(
+          channelName,
+          () => {},
+        );
+        if (!processingEventIds.contains(id)) {
+          _processMessage(channel, message, channelName, id);
+          processingEventIds.add(id);
+        }
+      }
+    }
   }
 
   Future<void> _processMessage(
@@ -147,7 +175,7 @@ class EngineHostState {
         'Resolved message by id $id for channel $channelName: $encodedMessage',
       );
       evaluationResult = _runJavaScript(
-        'globalThis.HostMessengerRegisteredChannels["$channelName"].resolveById($id, ${json.encode(encodedMessage)})',
+        '$_envExport.HostMessengerRegisteredChannels["$channelName"].resolveById($id, ${json.encode(encodedMessage)})',
       );
     } catch (e) {
       final encodedMessage = e.toString();
@@ -155,7 +183,7 @@ class EngineHostState {
         'Rejected message by id $id for channel $channelName: $encodedMessage',
       );
       evaluationResult = _runJavaScript(
-        'globalThis.HostMessengerRegisteredChannels["$channelName"].rejectById($id, ${json.encode(encodedMessage)})',
+        '$_envExport.HostMessengerRegisteredChannels["$channelName"].rejectById($id, new Error(${json.encode(encodedMessage)}))',
       );
     }
     try {
@@ -178,9 +206,9 @@ class EngineHostState {
     _ensureMessageListenerActive();
     try {
       await _runJavaScript(
-          '''globalThis.HostMessengerRegisteredChannels["$channelName"] = new HostMessenger();
+          '''$_envExport.HostMessengerRegisteredChannels["$channelName"] = new HostMessenger("$channelName");
       // for compatibility with popular webview plugins receiving messages
-      globalThis["$channelName"] = globalThis.HostMessengerRegisteredChannels["$channelName"];''');
+      globalThis["$channelName"] = $_envExport.HostMessengerRegisteredChannels["$channelName"];''');
       _logger.finest('Channel $channelName added');
     } catch (e, s) {
       _logger.severe('Error adding channel $channelName', e, s);

@@ -1,3 +1,7 @@
+# 2.1.0
+
+- For improving performance, add a hack to use console messaging as a more efficient way to receive independent javascript channel messages from JavaScript environment
+
 # 2.0.0
 
 - Update dependency of `javascript_platform_interface` to version `2.0.0`

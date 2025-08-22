@@ -1,8 +1,10 @@
 part of 'state.dart';
 
-const String _MESSAGING_SCRIPT = r'''
+// ignore: non_constant_identifier_names
+String _MESSAGING_SCRIPT(bool useConsoleMessagingHack) => '''
 class HostMessenger {
-    constructor() {
+    constructor(name) {
+        this.channelName = name;
         this.pendingMessages = [];
         this.id = 0;
     }
@@ -37,40 +39,58 @@ class HostMessenger {
 
     postMessage(message) {
         if (typeof message !== 'string') {
-            throw new Error(`Message must be a string, got ${typeof message}`);
+            throw new Error(`Message must be a string, got \${typeof message}`);
         }
         let promise = new Promise((resolve, reject) => {
+            const nextId = this.id++;
             this.pendingMessages.push({
-                id: this.id++,
+                id: nextId,
                 message,
                 resolve,
                 reject
             });
+            if (globalThis.JavaScriptAndroid.useConsoleMessagingHack) {
+                this.postMessageForConsoleMessagingHack(nextId, message);
+            }
         });
         return promise;
     }
-}
 
-globalThis.HostMessengerRegisteredChannels = {}
+    postMessageForConsoleMessagingHack(id, message) {
+         // Cannot rely on console messages for the transfer of large volumes of data. Overly large messages, stack traces, or source identifiers may be truncated.
+         const messageNotification = JSON.stringify({ tag: 'CONSOLE_MESSAGING_HACK', id, channelName: this.channelName });
+         globalThis.JavaScriptAndroid.useConsoleMessagingHack(messageNotification);
+    }
+}
 
 /// Similar to sendMessage available from ios plugin implementation
 globalThis.sendMessage = function(channelName, message) {
-  return globalThis.HostMessengerRegisteredChannels[channelName].postMessage(message);
+  return globalThis.JavaScriptAndroid.HostMessengerRegisteredChannels[channelName].postMessage(message);
 }
 
-globalThis.getPendingMessages = function(channelName) {
-  try {
-    const registeredChannels = globalThis.HostMessengerRegisteredChannels;
-    if (registeredChannels[channelName] && registeredChannels[channelName].getPendingMessages) {
-      return registeredChannels[channelName].getPendingMessages();
-    } else {
-      console.error({reason: `Channel ${channelName} is not found`, channel: registeredChannels[channelName] });
+globalThis.JavaScriptAndroid = {
+  HostMessengerRegisteredChannels: {},
+  /// Using console.warn because it may be the least used console method.
+  useConsoleMessagingHack: $useConsoleMessagingHack ? console.warn : false,
+  getPendingMessages: function(channelName) {
+    try {
+      const registeredChannels = globalThis.JavaScriptAndroid.HostMessengerRegisteredChannels;
+      if (registeredChannels[channelName] && registeredChannels[channelName].getPendingMessages) {
+        return registeredChannels[channelName].getPendingMessages();
+      } else {
+        console.error({reason: `Channel \${channelName} is not found`, channel: registeredChannels[channelName] });
+      }
+      return [];
+    } catch (e) {
+      console.error(`Error when getting pending messages for channel \${channelName}`, e);
+      return [];
     }
-    return [];
-  } catch (e) {
-    console.error(`Error when getting pending messages for channel $channelName`, e);
-    return [];
   }
+}
+
+if (globalThis.JavaScriptAndroid.useConsoleMessagingHack) {
+  /// Forward warning level messages to console.info
+  console.warn = function (...args) { console.info(`WARNING: `, ...args);}
 }
 ''';
 

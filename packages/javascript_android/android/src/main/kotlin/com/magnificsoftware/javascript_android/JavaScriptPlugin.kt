@@ -8,14 +8,31 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 
 public class JavaScriptPlugin : FlutterPlugin, ActivityAware {
     private var javaScriptAndroid: JavaScriptAndroid? = null
+    private var proxyApiRegistrar: ProxyApiRegistrar? = null
+    private var pluginBinding: FlutterPluginBinding? = null
 
     override fun onAttachedToEngine(binding: FlutterPluginBinding) {
-        val api = JavaScriptAndroid(binding.applicationContext)
+        pluginBinding = binding
+        proxyApiRegistrar =
+            ProxyApiRegistrar(
+                binding.applicationContext,
+                binding.binaryMessenger,
+            )
+
+        proxyApiRegistrar!!.setUp()
+
+        val api = JavaScriptAndroid(binding.applicationContext, proxyApiRegistrar!!)
         javaScriptAndroid = api
         JavaScriptAndroidPlatformApi.setUp(binding.binaryMessenger, api)
     }
 
     override fun onDetachedFromEngine(binding: FlutterPluginBinding) {
+        if (proxyApiRegistrar != null) {
+            proxyApiRegistrar!!.tearDown()
+            proxyApiRegistrar!!.instanceManager.stopFinalizationListener()
+            proxyApiRegistrar = null
+        }
+
         if (javaScriptAndroid == null) {
             Log.wtf(TAG, "Already detached from the engine.")
             return
@@ -26,18 +43,23 @@ public class JavaScriptPlugin : FlutterPlugin, ActivityAware {
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        //
+        proxyApiRegistrar?.setContext(binding.activity)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
-        //
+        if (pluginBinding != null) {
+            proxyApiRegistrar?.setContext(pluginBinding!!.applicationContext)
+        }
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-        //
+        proxyApiRegistrar?.setContext(binding.activity)
     }
 
     override fun onDetachedFromActivity() {
+        if (pluginBinding != null) {
+            proxyApiRegistrar?.setContext(pluginBinding!!.applicationContext);
+        }
         Log.i("JavaScriptPlugin", "closing javascript android js sandbox on detached from activity")
         javaScriptAndroid?.cleanUpSandBox()
     }

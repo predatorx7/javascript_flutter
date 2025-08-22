@@ -5,6 +5,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
 import androidx.javascriptengine.IsolateStartupParameters
 import androidx.javascriptengine.IsolateTerminatedException
+import androidx.javascriptengine.JavaScriptConsoleCallback
 import androidx.javascriptengine.JavaScriptIsolate
 import androidx.javascriptengine.JavaScriptSandbox
 import androidx.javascriptengine.MemoryLimitExceededException
@@ -16,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.io.File
 import java.util.concurrent.Executor
 
-class JavaScriptAndroid(private var applicationContext: android.content.Context) :
+class JavaScriptAndroid(private var applicationContext: android.content.Context, private var proxyApiRegistrar: ProxyApiRegistrar) :
     JavaScriptAndroidPlatformApi {
     companion object {
         private const val TAG = "JavaScriptAndroid"
@@ -37,8 +38,8 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
         return executor
     }
 
-    override fun startJavaScriptEngine(
-        javascriptEngineId: String, callback: (Result<Unit>) -> Unit
+    override fun startJavaScriptEnvironment(
+        javascriptInstanceId: String, callback: (Result<Unit>) -> Unit
     ) {
         try {
             val sandboxFuture = getJSSandbox()
@@ -54,7 +55,7 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
                             "JS_FEATURE_ISOLATE_MAX_HEAP_SIZE" to sandbox.isFeatureSupported(JavaScriptSandbox.JS_FEATURE_ISOLATE_MAX_HEAP_SIZE)
                         ).toString())
                         val jsIsolate = sandbox.createIsolate(startupParams)
-                        activeJsIsolates.put(javascriptEngineId, jsIsolate)
+                        activeJsIsolates.put(javascriptInstanceId, jsIsolate)
                         callback(Result.success(Unit))
 
                         // refer: https://developer.android.com/develop/ui/views/layout/webapps/jsengine#handling-sandbox-crashes
@@ -67,7 +68,7 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
                                     else -> IsolateTerminatedException(this.toString())
                                 }
                                 cleanUpIfSandboxDead(ex)
-                                activeJsIsolates.remove(javascriptEngineId)
+                                activeJsIsolates.remove(javascriptInstanceId)
                             }
                         }
                         try {
@@ -97,12 +98,12 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
     }
 
     override fun dispose(
-        javascriptEngineId: String, callback: (Result<Unit>) -> Unit
+        javascriptInstanceId: String, callback: (Result<Unit>) -> Unit
     ) {
         try {
-            val js = requireJsIsolateById(javascriptEngineId)
+            val js = requireJsIsolateById(javascriptInstanceId)
             js.close()
-            activeJsIsolates.remove(javascriptEngineId)
+            activeJsIsolates.remove(javascriptInstanceId)
             callback(Result.success(Unit))
         } catch (e: Exception) {
             cleanUpIfSandboxDead(e)
@@ -116,24 +117,24 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
     }
 
     override fun runJavaScriptFromFileReturningResult(
-        javascriptEngineId: String,
+        javascriptInstanceId: String,
         javaScriptFilePath: String,
         callback: (Result<String?>) -> Unit
     ) {
         try {
             val javaScriptFile = File(javaScriptFilePath)
             val javascript = javaScriptFile.readText()
-            return runJavaScriptReturningResult(javascriptEngineId, javascript, callback)
+            return runJavaScriptReturningResult(javascriptInstanceId, javascript, callback)
         } catch (e: Exception) {
             callback(Result.failure(e))
         }
     }
 
     override fun runJavaScriptReturningResult(
-        javascriptEngineId: String, javaScript: String, callback: (Result<String?>) -> Unit
+        javascriptInstanceId: String, javaScript: String, callback: (Result<String?>) -> Unit
     ) {
         try {
-            val js = requireJsIsolateById(javascriptEngineId)
+            val js = requireJsIsolateById(javascriptInstanceId)
 
             var didSubmitResponse = false
 
@@ -164,11 +165,69 @@ class JavaScriptAndroid(private var applicationContext: android.content.Context)
         }
     }
 
-    override fun setIsInspectable(
-        javascriptEngineId: String, isInspectable: Boolean, callback: (Result<Unit>) -> Unit
+    override fun setJavaScriptConsoleMessageHandler(
+        javascriptInstanceId: String,
+        mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier: Long,
+        callback: (Result<Boolean>) -> Unit
     ) {
         try {
-            requireJsIsolateById(javascriptEngineId)
+            val handler = proxyApiRegistrar.instanceManager.getInstance<JavaScriptAndroidConsoleMessageHandler>(mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier)
+            if (handler == null) {
+                return callback(Result.failure(Throwable("No JavaScriptAndroidConsoleMessageHandler found registered by identifier $mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier")))
+            }
+
+            val sandbox = getJSSandbox()
+
+            val js = requireJsIsolateById(javascriptInstanceId)
+
+            var didSubmitResponse = false
+
+            fun onError(t: Throwable) {
+                cleanUpIfSandboxDead(t)
+                if (didSubmitResponse) {
+                    Log.e("JavaScriptAndroid", "An error was received when didSubmitResponse is true", t)
+                    return
+                }
+                didSubmitResponse = true
+                callback(Result.failure(t))
+            }
+
+            Futures.addCallback(
+                sandbox, object : FutureCallback<JavaScriptSandbox> {
+                    override fun onSuccess(sandbox: JavaScriptSandbox) {
+                        var result = false
+                        try {
+                            if (sandbox.isFeatureSupported(JavaScriptSandbox.JS_FEATURE_CONSOLE_MESSAGING)) {
+                                js.setConsoleCallback(getMainExecutor(), handler)
+                                result = true
+                            }
+                        } catch (e: Throwable) {
+                            onError(e)
+                            return
+                        }
+                        if (didSubmitResponse) {
+                            Log.i("JavaScriptAndroid", "A response was received when didSubmitResponse is true: $result")
+                            return
+                        }
+                        didSubmitResponse = true
+                        callback(Result.success(result))
+                    }
+
+                    override fun onFailure(t: Throwable) {
+                        onError(t)
+                    }
+                }, getMainExecutor()
+            )
+        } catch (e: Exception) {
+            callback(Result.failure(e))
+        }
+    }
+
+    override fun setIsInspectable(
+        javascriptInstanceId: String, isInspectable: Boolean, callback: (Result<Unit>) -> Unit
+    ) {
+        try {
+            requireJsIsolateById(javascriptInstanceId)
             // unsupported
             callback(Result.success(Unit))
         } catch (e: Exception) {
