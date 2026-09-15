@@ -1,3 +1,10 @@
+# Unreleased
+
+- Remove per-runtime callback registrations and cancel timers on disposal.
+- Guard asynchronous replies and Promise polling after context disposal.
+- Release temporary JavaScriptCore strings and pointer slots in runtime paths.
+- Handle null JSON string references without calling JSStringRelease on null.
+
 # 2.0.0
 
 - Update dependency of `javascript_platform_interface` to version `2.0.0`
