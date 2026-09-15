@@ -79,6 +79,19 @@ abstract class JavascriptRuntime {
 
   Map<String, dynamic> dartContext = {};
 
+  final Set<Timer> _timers = {};
+
+  @protected
+  void releaseDartResources() {
+    channelFunctionsRegistered.remove(getEngineInstanceId());
+    for (final timer in _timers) {
+      timer.cancel();
+    }
+    _timers.clear();
+    localContext.clear();
+    dartContext.clear();
+  }
+
   void dispose();
 
   static final Map<String, Map<String, Function(dynamic arg)>>
@@ -133,7 +146,7 @@ abstract class JavascriptRuntime {
           // console.log(typeof(sendMessage));
           // console.log('BLA');
           sendMessage('SetTimeout', JSON.stringify({ timeoutIndex, timeout}));
-            
+
         } catch (e) {
           console.error('ERROR HERE',e.message);
         }
@@ -146,13 +159,16 @@ abstract class JavascriptRuntime {
         int duration = args['timeout'] ?? 0;
         String idx = args['timeoutIndex'];
 
-        Timer(Duration(milliseconds: duration), () {
+        late final Timer timer;
+        timer = Timer(Duration(milliseconds: duration), () {
+          _timers.remove(timer);
           if (isDisposed) return;
           evaluate("""
             __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx].call();
             delete __NATIVE_FLUTTER_JS__setTimeoutCallbacks[$idx];
           """);
         });
+        _timers.add(timer);
       } on Exception catch (e) {
         print('Exception no setTimeout: $e');
       } on Error catch (e) {
