@@ -22,6 +22,15 @@ abstract class JavaScriptAndroidConsoleMessageHandler {
   late void Function(String message) onMessage;
 }
 
+@ProxyApi()
+abstract class JavaScriptAndroidMessagePortHandler {
+  // ignore: avoid_unused_constructor_parameters
+  JavaScriptAndroidMessagePortHandler();
+
+  /// Handles string messages posted by JavaScript over the message port.
+  late void Function(String message) onMessage;
+}
+
 @HostApi()
 abstract class JavaScriptAndroidPlatformApi {
   @asyncCallback
@@ -45,4 +54,17 @@ abstract class JavaScriptAndroidPlatformApi {
     String javascriptInstanceId,
     int mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier,
   );
+
+  /// Opens a message port named `javascript_android_host` on the isolate and
+  /// forwards the string messages JavaScript posts to [handler]. Returns false
+  /// when message ports are unsupported by the device's WebView.
+  @asyncCallback
+  bool setJavaScriptMessagePortHandler(
+    String javascriptInstanceId,
+    int messagePortHandlerInstanceIdentifier,
+  );
+
+  /// Posts a string message to JavaScript over the message port.
+  @asyncCallback
+  void postMessageToJavaScript(String javascriptInstanceId, String message);
 }

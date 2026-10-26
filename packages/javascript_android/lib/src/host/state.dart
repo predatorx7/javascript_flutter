@@ -4,17 +4,21 @@ import 'package:logging/logging.dart';
 
 import 'package:javascript_platform_interface/javascript_platform_interface.dart';
 
+import 'transport.dart';
+
 part 'scripts.dart';
 
 typedef RunJavascriptCallback = Future<Object?> Function(String javaScript);
+typedef PostMessageToJavaScriptCallback = Future<void> Function(String message);
 
 class EngineHostState {
   EngineHostState._({
     required this.messageListenerInterval,
     required this.engineId,
     required RunJavascriptCallback runJavaScript,
-    required this.useConsoleMessagingHack,
-  }) {
+    required this.transport,
+    PostMessageToJavaScriptCallback? postMessageToJavaScript,
+  }) : _postMessageToJavaScript = postMessageToJavaScript {
     _runJavaScript = (String javascript) {
       if (_isDisposed) return Future.value(null);
       return runJavaScript(javascript);
@@ -28,22 +32,31 @@ class EngineHostState {
     required Duration messageListenerInterval,
     bool implementJsSetTimeout = true,
     required RunJavascriptCallback runJavaScript,
-    // A hack that uses console message handler to receive new channel messages
-    // for more efficient communication because jetpack javascript engine doesn't
-    // have an api to set javascript interface in javascript environment
-    required bool useConsoleMessagingHack,
+    // How JavaScript delivers channel messages to Dart. See
+    // [JavaScriptAndroidMessagingTransport].
+    required JavaScriptAndroidMessagingTransport transport,
+    // Posts a string to JavaScript over the message port. Required for
+    // [JavaScriptAndroidMessagingTransport.messagePort].
+    PostMessageToJavaScriptCallback? postMessageToJavaScript,
   }) async {
     final state = EngineHostState._(
       messageListenerInterval: messageListenerInterval,
       engineId: engineId,
       runJavaScript: runJavaScript,
-      useConsoleMessagingHack: useConsoleMessagingHack,
+      transport: transport,
+      postMessageToJavaScript: postMessageToJavaScript,
     );
 
-    await state._runJavaScript(_MESSAGING_SCRIPT(useConsoleMessagingHack));
-    if (implementJsSetTimeout) {
-      await state._runJavaScript(_TIMEOUT_SCRIPT);
-      await state._setupJsSetTimeoutMessaging();
+    try {
+      await state._runJavaScript(_MESSAGING_SCRIPT(transport));
+      if (implementJsSetTimeout) {
+        await state._runJavaScript(_TIMEOUT_SCRIPT);
+        await state._setupJsSetTimeoutMessaging();
+      }
+    } catch (_) {
+      // Stops the polling timer that addChannel may have started.
+      state.dispose();
+      rethrow;
     }
 
     return state;
@@ -51,7 +64,8 @@ class EngineHostState {
 
   final String engineId;
   final Duration messageListenerInterval;
-  final bool useConsoleMessagingHack;
+  final JavaScriptAndroidMessagingTransport transport;
+  final PostMessageToJavaScriptCallback? _postMessageToJavaScript;
 
   late final RunJavascriptCallback _runJavaScript;
 
@@ -65,7 +79,7 @@ class EngineHostState {
     if (_timer != null) {
       return;
     }
-    if (useConsoleMessagingHack) return;
+    if (transport != JavaScriptAndroidMessagingTransport.polling) return;
     _startTimer();
   }
 
@@ -81,11 +95,11 @@ class EngineHostState {
       return '"$channelName": $_envExport.getPendingMessages("$channelName")';
     }).join(',');
 
-    final messages =
-        await _runJavaScript('JSON.stringify({$channelPendingMessages})')
-            as Map<String, Object?>;
+    final result =
+        await _runJavaScript('JSON.stringify({$channelPendingMessages})');
 
-    return messages;
+    // Results are plain strings, decode the JSON ourselves.
+    return (json.decode(result! as String) as Map).cast<String, Object?>();
   }
 
   Future<Map<String, Object?>> getPendingMessagesBy(
@@ -96,11 +110,11 @@ class EngineHostState {
       return '"$channelName": $_envExport.getPendingMessages("$channelName").filter(it => it.id == $id)';
     }).join(',');
 
-    final messages =
-        await _runJavaScript('JSON.stringify({$channelPendingMessages})')
-            as Map<String, Object?>;
+    final result =
+        await _runJavaScript('JSON.stringify({$channelPendingMessages})');
 
-    return messages;
+    // Results are plain strings, decode the JSON ourselves.
+    return (json.decode(result! as String) as Map).cast<String, Object?>();
   }
 
   final Map<String, Set<int>> _processingMessages = {};
@@ -152,6 +166,55 @@ class EngineHostState {
     }
   }
 
+  /// Handles a raw `{channelName, id, message}` JSON string that JavaScript
+  /// posted over the message port.
+  void onPortMessage(String raw) {
+    if (_isDisposed) return;
+    String channelName;
+    int id;
+    String message;
+    try {
+      final payload = json.decode(raw) as Map;
+      channelName = payload['channelName'] as String;
+      id = (payload['id'] as num).toInt();
+      message = payload['message'] as String;
+    } catch (e, s) {
+      _logger.severe(
+          'Invalid message received over the message port: $raw', e, s);
+      return;
+    }
+    final channel = _enabledChannels[channelName];
+    if (channel == null) {
+      _logger.severe('Channel $channelName not found');
+      _replyOverPort(channelName, id,
+          ok: false, error: 'Channel $channelName not found');
+      return;
+    }
+    _processMessage(channel, message, channelName, id);
+  }
+
+  Future<void> _replyOverPort(
+    String channelName,
+    int id, {
+    required bool ok,
+    String? message,
+    String? error,
+  }) async {
+    final post = _postMessageToJavaScript;
+    if (_isDisposed || post == null) return;
+    try {
+      await post(json.encode({
+        'channelName': channelName,
+        'id': id,
+        'ok': ok,
+        if (ok) 'message': message else 'error': error,
+      }));
+    } catch (e, s) {
+      _logger.severe(
+          'Error replying to message $id of channel $channelName', e, s);
+    }
+  }
+
   Future<void> _processMessage(
     JavaScriptChannelParams channel,
     String message,
@@ -167,24 +230,27 @@ class EngineHostState {
         JavaScriptMessage(message: message),
       );
       final reply = response.message;
-      String encodedMessage = 'null';
-      if (reply != null) {
-        encodedMessage = reply;
-      }
+      // A null reply resolves the JavaScript promise with `null`.
       _logger.finest(
-        'Resolved message by id $id for channel $channelName: $encodedMessage',
+        'Resolved message by id $id for channel $channelName: $reply',
       );
-      evaluationResult = _runJavaScript(
-        '$_envExport.HostMessengerRegisteredChannels["$channelName"].resolveById($id, ${json.encode(encodedMessage)})',
-      );
+      evaluationResult =
+          transport == JavaScriptAndroidMessagingTransport.messagePort
+              ? _replyOverPort(channelName, id, ok: true, message: reply)
+              : _runJavaScript(
+                  '$_envExport.HostMessengerRegisteredChannels["$channelName"].resolveById($id, ${json.encode(reply)})',
+                );
     } catch (e) {
       final encodedMessage = e.toString();
       _logger.finest(
         'Rejected message by id $id for channel $channelName: $encodedMessage',
       );
-      evaluationResult = _runJavaScript(
-        '$_envExport.HostMessengerRegisteredChannels["$channelName"].rejectById($id, new Error(${json.encode(encodedMessage)}))',
-      );
+      evaluationResult = transport ==
+              JavaScriptAndroidMessagingTransport.messagePort
+          ? _replyOverPort(channelName, id, ok: false, error: encodedMessage)
+          : _runJavaScript(
+              '$_envExport.HostMessengerRegisteredChannels["$channelName"].rejectById($id, new Error(${json.encode(encodedMessage)}))',
+            );
     }
     try {
       await evaluationResult;
@@ -216,12 +282,20 @@ class EngineHostState {
     }
   }
 
-  void removeChannel(String channelName) {
+  Future<void> removeChannel(String channelName) async {
     _enabledChannels.remove(channelName);
     final events = _processingMessages.remove(channelName);
     events?.clear();
     if (_enabledChannels.isEmpty) {
       _removeTimer();
+    }
+    // Reject in-flight sends and make later `sendMessage` calls fail in
+    // JavaScript instead of leaving their promises pending forever.
+    try {
+      await _runJavaScript(
+          'var __ch = $_envExport.HostMessengerRegisteredChannels["$channelName"]; if (__ch) { __ch.rejectAll(new Error("Channel $channelName was removed")); } delete $_envExport.HostMessengerRegisteredChannels["$channelName"]; delete globalThis["$channelName"]; void 0;');
+    } catch (e, s) {
+      _logger.severe('Error removing channel $channelName', e, s);
     }
   }
 
