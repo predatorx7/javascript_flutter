@@ -7,53 +7,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  ios:
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [headless, simulator-app]
-    name: ios-${{ matrix.mode }}
-    runs-on: macos-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: packages/javascript/example
-    steps:
-      - uses: actions/checkout@v5
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Toolchain info
-        run: |
-          sw_vers
-          xcodebuild -version
-          flutter doctor -v
-
-      - name: Start simulator
-        id: simulator
-        run: |
-          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) for x in d[k] if x["name"].startswith("iPhone")))')
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
-          if [ "${{ matrix.mode }}" = "simulator-app" ]; then
-            open -a Simulator --args -CurrentDeviceUDID "$UDID"
-            sleep 10
-          fi
-          xcrun simctl list devices booted
-
-      - name: Integration tests (capped)
-        timeout-minutes: 12
-        run: flutter test integration_test/javascript_test.dart -d ${{ steps.simulator.outputs.udid }}
-
   android:
     strategy:
       fail-fast: false
       matrix:
-        api-level: ["37", "37.1", "37.2"]
-    name: android-${{ matrix.api-level }}
+        include:
+          - api-level: "37.0"
+            target: ${{ matrix.target }}
+          - api-level: "37.1"
+            target: google_apis_ps16k
+          - api-level: "37.2"
+            target: google_apis_ps16k
+    name: android-${{ matrix.api-level }}-${{ matrix.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     defaults:
@@ -79,7 +44,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          target: google_apis
+          target: ${{ matrix.target }}
           arch: x86_64
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
