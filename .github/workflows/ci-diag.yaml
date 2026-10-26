@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - api-level: "37.0"
-            target: ${{ matrix.target }}
+            target: google_apis
           - api-level: "37.1"
             target: google_apis_ps16k
           - api-level: "37.2"
