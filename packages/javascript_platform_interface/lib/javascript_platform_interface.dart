@@ -54,21 +54,64 @@ abstract class JavaScriptPlatform extends PlatformInterface {
   /// Evaluates the given JavaScript code [javaScript] in the context of the javascript environment
   /// with id [javaScriptInstanceId], and returns the result.
   ///
-  /// The Future completes with an error if a JavaScript error occurred, or if the
-  /// type the given expression evaluates to is unsupported.
+  /// {@template javascript_platform_result_contract}
+  /// ## Result contract
+  ///
+  /// 1. The value the script evaluates to (its completion value, i.e. the last
+  ///    expression statement; there is no top level `return`), or the value a
+  ///    returned `Promise` resolves to, is returned as a [String] exactly
+  ///    as-is. There is no JSON decoding, number or boolean parsing, or type
+  ///    detection. `""` is `""`.
+  /// 2. If that value is not a JavaScript string (a number, boolean, `null`,
+  ///    `undefined`, object, array, bigint, function, `NaN`, `Infinity`, a
+  ///    script ending in a declaration, an empty script, ...) the [Future]
+  ///    resolves to the empty string `''` on every platform.
+  /// 3. Promises are awaited (on Android this needs a WebView with
+  ///    `JS_FEATURE_PROMISE_RETURN`; WebViews without it
+  ///    resolve a Promise result to `''`). A rejected promise completes the [Future] with a
+  ///    [JavaScriptExecutionException] carrying the rejection reason. A script
+  ///    that throws or fails to parse completes it with a
+  ///    [JavaScriptExecutionException] carrying the JavaScript error message.
+  /// 4. The declared type is `Future<Object?>` for API compatibility, but the
+  ///    [Future] always resolves to a [String]. It may be narrowed to
+  ///    `Future<String>` in a future major version.
+  ///
+  /// To get structured data back, end the script with `JSON.stringify(...)`
+  /// and decode it in Dart:
+  ///
+  /// ```dart
+  /// final result = await platform.runJavaScriptReturningResult(
+  ///   id,
+  ///   'JSON.stringify({a: 1, b: [2, 3]})',
+  /// );
+  /// final data = jsonDecode(result as String); // {a: 1, b: [2, 3]}
+  /// ```
+  /// {@endtemplate}
   Future<Object?> runJavaScriptReturningResult(String javaScriptInstanceId, String javaScript);
 
   /// Loads the content of of file from [javaScriptFilePath] and evaluates it as javascript code in the context of the
   /// javascript environment with id [javaScriptInstanceId], and returns the result.
   ///
-  /// The Future completes with an error if a JavaScript error occurred, or if the
-  /// type the given expression evaluates to is unsupported.
+  /// The result follows the same contract as [runJavaScriptReturningResult]:
+  ///
+  /// {@macro javascript_platform_result_contract}
   Future<Object?> runJavaScriptFromFileReturningResult(
     String javaScriptInstanceId,
     String javaScriptFilePath,
   );
 
   /// Adds a new JavaScript channel to the set of enabled channels.
+  ///
+  /// JavaScript code calls `sendMessage(channelName, message)` where [message]
+  /// is a string. The Dart handler
+  /// ([JavaScriptChannelParams.onMessageReceived]) receives it verbatim in
+  /// [JavaScriptMessage.message], and [JavaScriptReply.message] is delivered
+  /// to JavaScript verbatim as the string the returned promise resolves to.
+  /// Nothing is encoded or decoded on the way, so use `JSON.stringify` and
+  /// `jsonDecode`/`jsonEncode` for structured data.
+  ///
+  /// Calling `sendMessage` with a channel name that is not registered throws
+  /// in JavaScript.
   Future<void> addJavaScriptChannel(
     String javaScriptInstanceId,
     JavaScriptChannelParams javaScriptChannelParams,
