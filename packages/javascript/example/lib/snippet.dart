@@ -22,17 +22,21 @@ void main() async {
     const sum = (a, b) => a + b;
 
     /// Send a message to the platform and return the result
-    const platformSum = (a, b) => sendMessage('Sum', JSON.stringify({a: 1, b: 2})).then(result => JSON.parse(result));
+    const platformSum = (a, b) => sendMessage('Sum', JSON.stringify({a, b})).then(result => JSON.parse(result));
 
     const addSum = async (a, b) => {
       return sum(a, b) + (await platformSum(a, b));
     }
 
-    /// Return the result as a string or a promise of a string.
+    /// The result of the last expression (or the value of a returned Promise) is
+    /// handed to Dart. It must be a string: use JSON.stringify for anything else.
     /// No return statement should be used at this top level evaluation.
-    addSum(1, 2).then(result => result.toString());
+    addSum(1, 2).then(result => JSON.stringify({sum: result}));
   ''');
-  print(result);
+
+  /// The result is always a String. Decode it yourself.
+  final data = json.decode(result as String) as Map<String, dynamic>;
+  print(data['sum']); // 6
 
   /// Dispose of the javascript environment to clear up resources
   await javascript.dispose();
