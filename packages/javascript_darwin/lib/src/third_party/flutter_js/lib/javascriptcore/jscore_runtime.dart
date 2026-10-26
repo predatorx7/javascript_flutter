@@ -80,11 +80,18 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
     String result;
 
     JSValue exceptionValue = exception.getValue(context);
+    // PATCH(javascript_darwin): track whether an exception was thrown instead of
+    // inferring it from a result string that starts with 'ERROR:', so scripts
+    // may evaluate to any string, and non-object values can be thrown.
+    final exceptionRef = exception.pointer.value;
+    final hasException = exceptionRef != nullptr;
     malloc.free(exception.pointer);
     bool isPromise = false;
     if (exceptionValue.isObject) {
       result =
           'ERROR: ${exceptionValue.toObject().getProperty("message").string} \n  at ${exceptionValue.toObject().getProperty("stack").string}';
+    } else if (hasException) {
+      result = 'ERROR: ${_getJsValue(exceptionRef)}';
     } else {
       result = _getJsValue(jsValueRef);
       JSValue resultValue = JSValue(context, jsValueRef);
@@ -96,8 +103,10 @@ class JavascriptCoreRuntime extends JavascriptRuntime {
 
     return JsEvalResult(
       result,
-      exceptionValue.isObject ? exceptionValue.toObject().pointer : jsValueRef,
-      isError: result.startsWith('ERROR:'),
+      exceptionValue.isObject
+          ? exceptionValue.toObject().pointer
+          : (hasException ? exceptionRef : jsValueRef),
+      isError: hasException,
       isPromise: isPromise,
     );
   }
