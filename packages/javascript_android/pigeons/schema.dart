@@ -24,23 +24,23 @@ abstract class JavaScriptAndroidConsoleMessageHandler {
 
 @HostApi()
 abstract class JavaScriptAndroidPlatformApi {
-  @async
+  @asyncCallback
   void startJavaScriptEnvironment(String javascriptInstanceId);
-  @async
+  @asyncCallback
   void dispose(String javascriptInstanceId);
-  @async
+  @asyncCallback
   String? runJavaScriptReturningResult(
     String javascriptInstanceId,
     String javaScript,
   );
-  @async
+  @asyncCallback
   String? runJavaScriptFromFileReturningResult(
     String javascriptInstanceId,
     String javaScriptFilePath,
   );
-  @async
+  @asyncCallback
   void setIsInspectable(String javascriptInstanceId, bool isInspectable);
-  @async
+  @asyncCallback
   bool setJavaScriptConsoleMessageHandler(
     String javascriptInstanceId,
     int mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier,
