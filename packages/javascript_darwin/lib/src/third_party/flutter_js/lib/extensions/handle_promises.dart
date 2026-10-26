@@ -34,7 +34,7 @@ extension HandlePromises on JavascriptRuntime {
       function FLUTTER_NATIVEJS_IS_REJECTED_PROMISE(idx) {
         return FLUTTER_NATIVEJS_PENDING_PROMISES[idx].isRejected();
       }
-      
+
       /**
        * This function allow you to modify a JS Promise by adding some status properties.
        * Based on: http://stackoverflow.com/questions/21485545/is-there-a-way-to-tell-if-an-es6-promise-is-fulfilled-rejected-resolved
@@ -56,12 +56,12 @@ extension HandlePromises on JavascriptRuntime {
                   isFulfilled = true;
                   isPending = false;
                   value = v;
-                  return v; 
-              }, 
+                  return v;
+              },
               function(e) {
                   isRejected = true;
                   isPending = false;
-                  value = e; 
+                  value = e;
               }
           );
 
@@ -107,6 +107,7 @@ extension HandlePromises on JavascriptRuntime {
       var completed = false;
       Function? fnEvaluatePromise;
       fnEvaluatePromise = () async {
+        if (isDisposed || completed) return;
         this.executePendingJob();
         if (!completed) {
           await Future.delayed(
@@ -140,6 +141,13 @@ extension HandlePromises on JavascriptRuntime {
         callFunction(evalRegisterPromise, value.rawResult).stringResult;
     int idxPromise = int.parse(promiseQuerableIdx);
     Timer.periodic(Duration(milliseconds: 20), (timer) {
+      if (isDisposed) {
+        timer.cancel();
+        if (!completer.isCompleted) {
+          completer.completeError(StateError('JavaScript runtime is disposed'));
+        }
+        return;
+      }
       // call to _JS_ExecutePendingJob
       this.executePendingJob();
       //eval(REGISTER_PROMISE_FUNCTION);

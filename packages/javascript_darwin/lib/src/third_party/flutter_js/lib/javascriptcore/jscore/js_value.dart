@@ -274,7 +274,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     int typeCode = JSValueRef.jSValueGetTypedArrayType(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
     return cEnumToJSTypedArrayType(typeCode);
   }
 
@@ -284,7 +284,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSValueRef.jSValueIsEqual(context.pointer, pointer, other.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -297,7 +297,7 @@ class JSValue {
             context.pointer,
             pointer,
             constructor.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -309,7 +309,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSString(JSValueRef.jSValueCreateJSONString(context.pointer, pointer,
-        indent, (exception ?? JSValuePointer(nullptr)).pointer));
+        indent, exception?.pointer ?? nullptr));
   }
 
   /// Converts a JavaScript value to boolean and returns the resulting boolean.
@@ -323,7 +323,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSValueRef.jSValueToNumber(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
   }
 
   /// Converts a JavaScript value to number and returns the resulting string.
@@ -340,7 +340,7 @@ class JSValue {
     JSValuePointer? exception,
   }) {
     return JSString(JSValueRef.jSValueToStringCopy(context.pointer, pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer));
+        exception?.pointer ?? nullptr));
   }
 
   /// Converts a JavaScript value to object and returns the resulting object.
@@ -351,7 +351,7 @@ class JSValue {
     return JSObject(
         context,
         JSValueRef.jSValueToObject(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Protects a JavaScript value from garbage collection.

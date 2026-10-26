@@ -548,7 +548,7 @@ class JSObject {
             context.pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Date object, as if by invoking the built-in Date constructor.
   /// [arguments] A JSValue array of arguments to pass to the Date Constructor. Pass NULL if argumentCount is 0.
@@ -561,7 +561,7 @@ class JSObject {
             context.pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Error object, as if by invoking the built-in Error constructor.
   /// [arguments] (JSValueRef[]) A JSValue array of arguments to pass to the Error Constructor. Pass NULL if argumentCount is 0.
@@ -574,7 +574,7 @@ class JSObject {
             context.pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript RegExp object, as if by invoking the built-in RegExp constructor.
   /// [arguments] (JSValueRef[]) A JSValue array of arguments to pass to the RegExp Constructor. Pass NULL if argumentCount is 0.
@@ -587,7 +587,7 @@ class JSObject {
             context.pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript promise object by invoking the provided executor.
   /// [resolve] (JSObjectRef*) A pointer to a JSObjectRef in which to store the resolve function for the new promise. Pass NULL if you do not care to store the resolve callback.
@@ -602,7 +602,7 @@ class JSObject {
             context.pointer,
             resolve.pointer,
             reject.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a function with a given script as its body.
   /// Use this method when you want to execute a script repeatedly, to avoid the cost of re-parsing the script before each execution.
@@ -628,7 +628,7 @@ class JSObject {
             JSString.fromString(body).pointer,
             JSString.fromString(sourceURL).pointer,
             startingLineNumber,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Typed Array object with the given number of elements.
   /// [arrayType] A value [JSTypedArrayType] identifying the type of array to create. If arrayType is kJSTypedArrayTypeNone or kJSTypedArrayTypeArrayBuffer then NULL will be returned.
@@ -643,7 +643,7 @@ class JSObject {
             context.pointer,
             JSValue.jSTypedArrayTypeToCEnum(arrayType),
             length,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Typed Array object from an existing pointer.
   /// If an exception is thrown during this function the bytesDeallocator will always be called.
@@ -668,7 +668,7 @@ class JSObject {
             bytes.length,
             bytesDeallocator ?? nullptr,
             deallocatorContext,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Typed Array object from an existing JavaScript Array Buffer object.
   /// [arrayType] A value [JSTypedArrayType] identifying the type of array to create. If arrayType is kJSTypedArrayTypeNone or kJSTypedArrayTypeArrayBuffer then NULL will be returned.
@@ -683,7 +683,7 @@ class JSObject {
             context.pointer,
             JSValue.jSTypedArrayTypeToCEnum(arrayType),
             buffer.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Typed Array object from an existing JavaScript Array Buffer object with the given offset and length.
   /// [arrayType] A value [JSTypedArrayType] identifying the type of array to create. If arrayType is kJSTypedArrayTypeNone or kJSTypedArrayTypeArrayBuffer then NULL will be returned.
@@ -705,7 +705,7 @@ class JSObject {
                 buffer.pointer,
                 byteOffset,
                 length,
-                (exception ?? JSValuePointer(nullptr)).pointer);
+                exception?.pointer ?? nullptr);
 
   /// Creates a JavaScript Array Buffer object from an existing pointer.
   /// If an exception is thrown during this function the bytesDeallocator will always be called.
@@ -726,7 +726,7 @@ class JSObject {
             bytes.length,
             bytesDeallocator ?? nullptr,
             deallocatorContext,
-            (exception ?? JSValuePointer(nullptr)).pointer);
+            exception?.pointer ?? nullptr);
 
   /// Gets an object's prototype.
   JSValue get prototype {
@@ -755,13 +755,13 @@ class JSObject {
     String propertyName, {
     JSValuePointer? exception,
   }) {
-    return JSValue(
-        context,
-        JSObjectRef.jSObjectGetProperty(
-            context.pointer,
-            pointer,
-            JSString.fromString(propertyName).pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+    final name = JSString.fromString(propertyName);
+    try {
+      return JSValue(context, JSObjectRef.jSObjectGetProperty(
+          context.pointer, pointer, name.pointer, exception?.pointer ?? nullptr));
+    } finally {
+      name.release();
+    }
   }
 
   /// Sets a property on an object.
@@ -781,7 +781,7 @@ class JSObject {
         JSString.fromString(propertyName).pointer,
         value.pointer,
         jSPropertyAttributesToCEnum(attributes),
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
   }
 
   /// Deletes a property from an object.
@@ -796,7 +796,7 @@ class JSObject {
             context.pointer,
             pointer,
             JSString.fromString(propertyName).pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -812,7 +812,7 @@ class JSObject {
             context.pointer,
             pointer,
             JSString.fromString(propertyKey).pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer) ==
+            exception?.pointer ?? nullptr) ==
         1;
   }
 
@@ -830,7 +830,7 @@ class JSObject {
             context.pointer,
             pointer,
             JSString.fromString(propertyKey).pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Sets a property on an object using a JSValueRef as the property key.
@@ -851,7 +851,7 @@ class JSObject {
         JSString.fromString(propertyKey).pointer,
         value.pointer,
         jSPropertyAttributesToCEnum(attributes),
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
   }
 
   /// Gets a property from an object by numeric index.
@@ -865,7 +865,7 @@ class JSObject {
     return JSValue(
         context,
         JSObjectRef.jSObjectGetPropertyAtIndex(context.pointer, pointer,
-            propertyIndex, (exception ?? JSValuePointer(nullptr)).pointer));
+            propertyIndex, exception?.pointer ?? nullptr));
   }
 
   /// Sets a property on an object by numeric index.
@@ -883,7 +883,7 @@ class JSObject {
         pointer,
         propertyIndex,
         value.pointer,
-        (exception ?? JSValuePointer(nullptr)).pointer);
+        exception?.pointer ?? nullptr);
   }
 
   /// Gets an object's private data.
@@ -921,7 +921,7 @@ class JSObject {
             thisObject.pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Tests whether an object can be called as a constructor.
@@ -944,7 +944,7 @@ class JSObject {
             pointer,
             arguments.count,
             arguments.pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Gets the names of an object's enumerable properties.
@@ -970,9 +970,9 @@ class JSObject {
   }) {
     return Bytes(
         JSTypedArray.jSObjectGetTypedArrayBytesPtr(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer),
+            exception?.pointer ?? nullptr),
         JSTypedArray.jSObjectGetTypedArrayLength(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Returns the byte length of a JavaScript Typed Array object.
@@ -981,7 +981,7 @@ class JSObject {
     JSValuePointer? exception,
   }) {
     return JSTypedArray.jSObjectGetTypedArrayByteLength(context.pointer,
-        pointer, (exception ?? JSValuePointer(nullptr)).pointer);
+        pointer, exception?.pointer ?? nullptr);
   }
 
   /// Returns the byte offset of a JavaScript Typed Array object.
@@ -990,7 +990,7 @@ class JSObject {
     JSValuePointer? exception,
   }) {
     return JSTypedArray.jSObjectGetTypedArrayByteOffset(context.pointer,
-        pointer, (exception ?? JSValuePointer(nullptr)).pointer);
+        pointer, exception?.pointer ?? nullptr);
   }
 
   /// Returns the JavaScript Array Buffer object that is used as the backing of a JavaScript Typed Array object.
@@ -1001,7 +1001,7 @@ class JSObject {
     return JSObject(
         context,
         JSTypedArray.jSObjectGetTypedArrayBuffer(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// Returns a pointer to the data buffer that serves as the backing store for a JavaScript Typed Array object.
@@ -1012,9 +1012,9 @@ class JSObject {
   }) {
     return Bytes(
         JSTypedArray.jSObjectGetArrayBufferBytesPtr(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer),
+            exception?.pointer ?? nullptr),
         JSTypedArray.jSObjectGetArrayBufferByteLength(context.pointer, pointer,
-            (exception ?? JSValuePointer(nullptr)).pointer));
+            exception?.pointer ?? nullptr));
   }
 
   /// JSObject to JSValue
