@@ -11,6 +11,10 @@ class ProxyApiRegistrar(private var context: Context, binaryMessenger: BinaryMes
         return JavaScriptAndroidConsoleMessageHandlerProxyApi(this)
     }
 
+    override fun getPigeonApiJavaScriptAndroidMessagePortHandler(): PigeonApiJavaScriptAndroidMessagePortHandler {
+        return JavaScriptAndroidMessagePortHandlerProxyApi(this)
+    }
+
     fun setContext(context: Context) {
         this.context = context
     }

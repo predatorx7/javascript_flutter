@@ -64,9 +64,17 @@ class PigeonOverrides {
         String message,
       ) onMessage})? javaScriptAndroidConsoleMessageHandler_new;
 
+  /// Overrides [JavaScriptAndroidMessagePortHandler.new].
+  static JavaScriptAndroidMessagePortHandler Function(
+      {required void Function(
+        JavaScriptAndroidMessagePortHandler pigeon_instance,
+        String message,
+      ) onMessage})? javaScriptAndroidMessagePortHandler_new;
+
   /// Sets all overridden ProxyApi class members to null.
   static void pigeon_reset() {
     javaScriptAndroidConsoleMessageHandler_new = null;
+    javaScriptAndroidMessagePortHandler_new = null;
   }
 }
 
@@ -180,6 +188,8 @@ class PigeonInstanceManager {
     _PigeonInternalInstanceManagerApi.setUpMessageHandlers(
         instanceManager: instanceManager);
     JavaScriptAndroidConsoleMessageHandler.pigeon_setUpMessageHandlers(
+        pigeon_instanceManager: instanceManager);
+    JavaScriptAndroidMessagePortHandler.pigeon_setUpMessageHandlers(
         pigeon_instanceManager: instanceManager);
     return instanceManager;
   }
@@ -590,6 +600,148 @@ class JavaScriptAndroidConsoleMessageHandler
   }
 }
 
+class JavaScriptAndroidMessagePortHandler
+    extends PigeonInternalProxyApiBaseClass {
+  factory JavaScriptAndroidMessagePortHandler({
+    BinaryMessenger? pigeon_binaryMessenger,
+    PigeonInstanceManager? pigeon_instanceManager,
+    required void Function(
+      JavaScriptAndroidMessagePortHandler pigeon_instance,
+      String message,
+    ) onMessage,
+  }) {
+    if (PigeonOverrides.javaScriptAndroidMessagePortHandler_new != null) {
+      return PigeonOverrides.javaScriptAndroidMessagePortHandler_new!(
+          onMessage: onMessage);
+    }
+    return JavaScriptAndroidMessagePortHandler.pigeon_new(
+      pigeon_binaryMessenger: pigeon_binaryMessenger,
+      pigeon_instanceManager: pigeon_instanceManager,
+      onMessage: onMessage,
+    );
+  }
+
+  @protected
+  JavaScriptAndroidMessagePortHandler.pigeon_new({
+    super.pigeon_binaryMessenger,
+    super.pigeon_instanceManager,
+    required this.onMessage,
+  }) {
+    final int pigeonVar_instanceIdentifier =
+        pigeon_instanceManager.addDartCreatedInstance(this);
+    final _PigeonInternalProxyApiBaseCodec pigeonChannelCodec =
+        _pigeonVar_codecJavaScriptAndroidMessagePortHandler;
+    final BinaryMessenger? pigeonVar_binaryMessenger = pigeon_binaryMessenger;
+    const pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidMessagePortHandler.pigeon_defaultConstructor';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[pigeonVar_instanceIdentifier]);
+    () async {
+      final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+      _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+      );
+    }();
+  }
+
+  /// Constructs [JavaScriptAndroidMessagePortHandler] without creating the associated native object.
+  ///
+  /// This should only be used by subclasses created by this library or to
+  /// create copies for an [PigeonInstanceManager].
+  @protected
+  JavaScriptAndroidMessagePortHandler.pigeon_detached({
+    super.pigeon_binaryMessenger,
+    super.pigeon_instanceManager,
+    required this.onMessage,
+  });
+
+  late final _PigeonInternalProxyApiBaseCodec
+      _pigeonVar_codecJavaScriptAndroidMessagePortHandler =
+      _PigeonInternalProxyApiBaseCodec(pigeon_instanceManager);
+
+  /// Handles string messages posted by JavaScript over the message port.
+  ///
+  /// For the associated Native object to be automatically garbage collected,
+  /// it is required that the implementation of this `Function` doesn't have a
+  /// strong reference to the encapsulating class instance. When this `Function`
+  /// references a non-local variable, it is strongly recommended to access it
+  /// with a `WeakReference`:
+  ///
+  /// ```dart
+  /// final WeakReference weakMyVariable = WeakReference(myVariable);
+  /// final JavaScriptAndroidMessagePortHandler instance = JavaScriptAndroidMessagePortHandler(
+  ///  onMessage: (JavaScriptAndroidMessagePortHandler pigeon_instance, ...) {
+  ///    print(weakMyVariable?.target);
+  ///  },
+  /// );
+  /// ```
+  ///
+  /// Alternatively, [PigeonInstanceManager.removeWeakReference] can be used to
+  /// release the associated Native object manually.
+  final void Function(
+    JavaScriptAndroidMessagePortHandler pigeon_instance,
+    String message,
+  ) onMessage;
+
+  static void pigeon_setUpMessageHandlers({
+    bool pigeon_clearHandlers = false,
+    BinaryMessenger? pigeon_binaryMessenger,
+    PigeonInstanceManager? pigeon_instanceManager,
+    void Function(
+      JavaScriptAndroidMessagePortHandler pigeon_instance,
+      String message,
+    )? onMessage,
+  }) {
+    final _PigeonInternalProxyApiBaseCodec pigeonChannelCodec =
+        _PigeonInternalProxyApiBaseCodec(
+            pigeon_instanceManager ?? PigeonInstanceManager.instance);
+    final BinaryMessenger? binaryMessenger = pigeon_binaryMessenger;
+    {
+      final pigeonVar_channel = BasicMessageChannel<Object?>(
+          'dev.flutter.pigeon.javascript_android.JavaScriptAndroidMessagePortHandler.onMessage',
+          pigeonChannelCodec,
+          binaryMessenger: binaryMessenger);
+      if (pigeon_clearHandlers) {
+        pigeonVar_channel.setMessageHandler(null);
+      } else {
+        pigeonVar_channel.setMessageHandler((Object? message) async {
+          final List<Object?> args = message! as List<Object?>;
+          final JavaScriptAndroidMessagePortHandler arg_pigeon_instance =
+              args[0]! as JavaScriptAndroidMessagePortHandler;
+          final String arg_message = args[1]! as String;
+          try {
+            (onMessage ?? arg_pigeon_instance.onMessage)
+                .call(arg_pigeon_instance, arg_message);
+            return wrapResponse(empty: true);
+          } on PlatformException catch (e) {
+            return wrapResponse(error: e);
+          } catch (e) {
+            return wrapResponse(
+                error: PlatformException(code: 'error', message: e.toString()));
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  JavaScriptAndroidMessagePortHandler pigeon_copy() {
+    return JavaScriptAndroidMessagePortHandler.pigeon_detached(
+      pigeon_binaryMessenger: pigeon_binaryMessenger,
+      pigeon_instanceManager: pigeon_instanceManager,
+      onMessage: onMessage,
+    );
+  }
+}
+
 class JavaScriptAndroidPlatformApi {
   /// Constructor for [JavaScriptAndroidPlatformApi]. The [binaryMessenger] named argument is
   /// available for dependency injection. If it is left null, the default
@@ -728,5 +880,50 @@ class JavaScriptAndroidPlatformApi {
       isNullValid: false,
     );
     return pigeonVar_replyValue! as bool;
+  }
+
+  /// Opens a message port named `javascript_android_host` on the isolate and
+  /// forwards the string messages JavaScript posts to [handler]. Returns false
+  /// when message ports are unsupported by the device's WebView.
+  Future<bool> setJavaScriptMessagePortHandler(String javascriptInstanceId,
+      int messagePortHandlerInstanceIdentifier) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.setJavaScriptMessagePortHandler$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+        <Object?>[javascriptInstanceId, messagePortHandlerInstanceIdentifier]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  /// Posts a string message to JavaScript over the message port.
+  Future<void> postMessageToJavaScript(
+      String javascriptInstanceId, String message) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.postMessageToJavaScript$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture =
+        pigeonVar_channel.send(<Object?>[javascriptInstanceId, message]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 }

@@ -403,13 +403,21 @@ abstract class MessagesPigeonProxyApiRegistrar(val binaryMessenger: BinaryMessen
    */
   abstract fun getPigeonApiJavaScriptAndroidConsoleMessageHandler(): PigeonApiJavaScriptAndroidConsoleMessageHandler
 
+  /**
+   * An implementation of [PigeonApiJavaScriptAndroidMessagePortHandler] used to add a new Dart instance of
+   * `JavaScriptAndroidMessagePortHandler` to the Dart `InstanceManager`.
+   */
+  abstract fun getPigeonApiJavaScriptAndroidMessagePortHandler(): PigeonApiJavaScriptAndroidMessagePortHandler
+
   fun setUp() {
     MessagesPigeonInstanceManagerApi.setUpMessageHandlers(binaryMessenger, instanceManager)
     PigeonApiJavaScriptAndroidConsoleMessageHandler.setUpMessageHandlers(binaryMessenger, getPigeonApiJavaScriptAndroidConsoleMessageHandler())
+    PigeonApiJavaScriptAndroidMessagePortHandler.setUpMessageHandlers(binaryMessenger, getPigeonApiJavaScriptAndroidMessagePortHandler())
   }
   fun tearDown() {
     MessagesPigeonInstanceManagerApi.setUpMessageHandlers(binaryMessenger, null)
     PigeonApiJavaScriptAndroidConsoleMessageHandler.setUpMessageHandlers(binaryMessenger, null)
+    PigeonApiJavaScriptAndroidMessagePortHandler.setUpMessageHandlers(binaryMessenger, null)
   }
 }
 private class MessagesPigeonProxyApiBaseCodec(val registrar: MessagesPigeonProxyApiRegistrar) : MessagesPigeonCodec() {
@@ -447,6 +455,13 @@ private class MessagesPigeonProxyApiBaseCodec(val registrar: MessagesPigeonProxy
       registrar.getPigeonApiJavaScriptAndroidConsoleMessageHandler().pigeon_newInstance(value) {
         if (it.isFailure) {
           logNewInstanceFailure("JavaScriptAndroidConsoleMessageHandler", value, it.exceptionOrNull())
+        }
+      }
+    }
+     else if (value is JavaScriptAndroidMessagePortHandler) {
+      registrar.getPigeonApiJavaScriptAndroidMessagePortHandler().pigeon_newInstance(value) {
+        if (it.isFailure) {
+          logNewInstanceFailure("JavaScriptAndroidMessagePortHandler", value, it.exceptionOrNull())
         }
       }
     }
@@ -548,6 +563,84 @@ abstract class PigeonApiJavaScriptAndroidConsoleMessageHandler(open val pigeonRe
   }
 
 }
+@Suppress("UNCHECKED_CAST")
+abstract class PigeonApiJavaScriptAndroidMessagePortHandler(open val pigeonRegistrar: MessagesPigeonProxyApiRegistrar) {
+  abstract fun pigeon_defaultConstructor(): JavaScriptAndroidMessagePortHandler
+
+  companion object {
+    @Suppress("LocalVariableName")
+    fun setUpMessageHandlers(binaryMessenger: BinaryMessenger, api: PigeonApiJavaScriptAndroidMessagePortHandler?) {
+      val codec = api?.pigeonRegistrar?.codec ?: MessagesPigeonCodec()
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.javascript_android.JavaScriptAndroidMessagePortHandler.pigeon_defaultConstructor", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val pigeon_identifierArg = args[0] as Long
+            val wrapped: List<Any?> = try {
+              api.pigeonRegistrar.instanceManager.addDartCreatedInstance(api.pigeon_defaultConstructor(), pigeon_identifierArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+    }
+  }
+
+  @Suppress("LocalVariableName", "FunctionName")
+  /** Creates a Dart instance of JavaScriptAndroidMessagePortHandler and attaches it to [pigeon_instanceArg]. */
+  fun pigeon_newInstance(pigeon_instanceArg: JavaScriptAndroidMessagePortHandler, callback: (Result<Unit>) -> Unit)
+{
+    if (pigeonRegistrar.ignoreCallsToDart) {
+      callback(
+          Result.failure(
+              FlutterError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+    }     else if (pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(Result.success(Unit))
+    }     else {
+      callback(
+          Result.failure(
+              FlutterError("new-instance-error", "Attempting to create a new Dart instance of JavaScriptAndroidMessagePortHandler, but the class has a nonnull callback method.", "")))
+    }
+  }
+
+  /** Handles string messages posted by JavaScript over the message port. */
+  fun onMessage(pigeon_instanceArg: JavaScriptAndroidMessagePortHandler, messageArg: String, callback: (Result<Unit>) -> Unit)
+{
+    if (pigeonRegistrar.ignoreCallsToDart) {
+      callback(
+          Result.failure(
+              FlutterError("ignore-calls-error", "Calls to Dart are being ignored.", "")))
+      return
+    }     else if (!pigeonRegistrar.instanceManager.containsInstance(pigeon_instanceArg)) {
+      callback(
+          Result.failure(
+              FlutterError("missing-instance-error", "Callback to `JavaScriptAndroidMessagePortHandler.onMessage` failed because native instance was not in the instance manager.", "")))
+      return
+    }
+    val binaryMessenger = pigeonRegistrar.binaryMessenger
+    val codec = pigeonRegistrar.codec
+    val channelName = "dev.flutter.pigeon.javascript_android.JavaScriptAndroidMessagePortHandler.onMessage"
+    val channel = BasicMessageChannel<Any?>(binaryMessenger, channelName, codec)
+    channel.send(listOf(pigeon_instanceArg, messageArg)) {
+      if (it is List<*>) {
+        if (it.size > 1) {
+          callback(Result.failure(FlutterError(it[0] as String, it[1] as String, it[2] as String?)))
+        } else {
+          callback(Result.success(Unit))
+        }
+      } else {
+        callback(Result.failure(MessagesPigeonUtils.createConnectionError(channelName)))
+      } 
+    }
+  }
+
+}
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface JavaScriptAndroidPlatformApi {
   fun startJavaScriptEnvironment(javascriptInstanceId: String, callback: (Result<Unit>) -> Unit)
@@ -556,6 +649,14 @@ interface JavaScriptAndroidPlatformApi {
   fun runJavaScriptFromFileReturningResult(javascriptInstanceId: String, javaScriptFilePath: String, callback: (Result<String?>) -> Unit)
   fun setIsInspectable(javascriptInstanceId: String, isInspectable: Boolean, callback: (Result<Unit>) -> Unit)
   fun setJavaScriptConsoleMessageHandler(javascriptInstanceId: String, mJavaScriptAndroidConsoleMessageHandlerInstanceIdentifier: Long, callback: (Result<Boolean>) -> Unit)
+  /**
+   * Opens a message port named `javascript_android_host` on the isolate and
+   * forwards the string messages JavaScript posts to [handler]. Returns false
+   * when message ports are unsupported by the device's WebView.
+   */
+  fun setJavaScriptMessagePortHandler(javascriptInstanceId: String, messagePortHandlerInstanceIdentifier: Long, callback: (Result<Boolean>) -> Unit)
+  /** Posts a string message to JavaScript over the message port. */
+  fun postMessageToJavaScript(javascriptInstanceId: String, message: String, callback: (Result<Unit>) -> Unit)
 
   companion object {
     /** The codec used by JavaScriptAndroidPlatformApi. */
@@ -680,6 +781,47 @@ interface JavaScriptAndroidPlatformApi {
               } else {
                 val data = result.getOrNull()
                 reply.reply(MessagesPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.setJavaScriptMessagePortHandler$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val javascriptInstanceIdArg = args[0] as String
+            val messagePortHandlerInstanceIdentifierArg = args[1] as Long
+            api.setJavaScriptMessagePortHandler(javascriptInstanceIdArg, messagePortHandlerInstanceIdentifierArg) { result: Result<Boolean> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(MessagesPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.javascript_android.JavaScriptAndroidPlatformApi.postMessageToJavaScript$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val javascriptInstanceIdArg = args[0] as String
+            val messageArg = args[1] as String
+            api.postMessageToJavaScript(javascriptInstanceIdArg, messageArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(MessagesPigeonUtils.wrapError(error))
+              } else {
+                reply.reply(MessagesPigeonUtils.wrapResult(null))
               }
             }
           }

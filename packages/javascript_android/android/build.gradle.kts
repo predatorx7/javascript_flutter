@@ -73,7 +73,7 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.javascriptengine:javascriptengine:1.0.0")
+    implementation("androidx.javascriptengine:javascriptengine:1.1.1")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.18.0")

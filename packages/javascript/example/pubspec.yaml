@@ -30,6 +30,8 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  # Only for the transport testing hooks used by integration_test/android_transports_test.dart.
+  javascript_android: ^2.2.0
   flutter_lints: ^6.0.0
   plugin_platform_interface: ^2.1.0
 
