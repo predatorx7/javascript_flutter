@@ -21,6 +21,10 @@ This example shows how to:
 - Load external JavaScript files from the web
 - Implement proper resource management and cleanup
 
+## Results are strings
+
+`runJavaScriptReturningResult` returns the value your script evaluates to as a `String`, verbatim. Any non-string value (number, boolean, object, ...) becomes `''`. To get structured data, end the script with `JSON.stringify(...)` and decode it in Dart, for example try `JSON.stringify({sum: 1 + 2, items: [1, 2]})` in the console. The console pretty-prints results that happen to be JSON; that formatting is done by the example app, not by the package.
+
 ## Getting Started
 
 1. Ensure you have Flutter installed and set up

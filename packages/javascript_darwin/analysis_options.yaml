@@ -1,1 +1,8 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # Vendored copy of package:flutter_js managed by `vendor.yaml`; its lints
+    # are not ours to fix.
+    - lib/src/third_party/**
+    - build/**

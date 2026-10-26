@@ -8,6 +8,36 @@ import 'runtime_service.dart';
 
 final Logger _log = Logger('JsInterpreterViewModel');
 
+/// The hint shown in the console explaining how results are returned.
+const String resultContractHelp =
+    'Results are returned as the exact string your script evaluates to; any '
+    'other value (number, boolean, object, ...) returns an empty string. '
+    'To get structured data back, end your script with '
+    'JSON.stringify({a: 1, b: [2, 3]}) and jsonDecode it in Dart.';
+
+/// The snippet used as the input hint.
+const String exampleSnippet = 'JSON.stringify({sum: 1 + 2, items: [1, 2]})';
+
+/// Formats a result of `runJavaScriptReturningResult` for display.
+///
+/// The package returns the raw string. This is purely a presentation helper of
+/// the example: if the string happens to be a JSON object or array it is
+/// pretty-printed, otherwise it is shown verbatim. An empty string is shown as
+/// `""` so it is visible that the script did not evaluate to a string.
+String formatResultForDisplay(Object? result) {
+  final text = result?.toString() ?? '';
+  if (text.isEmpty) return '""';
+  final trimmed = text.trimLeft();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return const JsonEncoder.withIndent('  ').convert(jsonDecode(text));
+    } on FormatException {
+      return text;
+    }
+  }
+  return text;
+}
+
 class JsInterpreterViewModel extends ChangeNotifier {
   final JsRuntimeService _service;
 
@@ -21,6 +51,7 @@ class JsInterpreterViewModel extends ChangeNotifier {
   JsInterpreterViewModel(this._service);
 
   Future<void> initialize() async {
+    _consoleHistory.add(ConsoleEntry.info(resultContractHelp));
     await _service.useJsRuntime((js) async {
       await js.runJavaScriptReturningResult("""
   console.log = function() {
@@ -106,7 +137,7 @@ class JsInterpreterViewModel extends ChangeNotifier {
 
     try {
       _result = await _service.evaluate(code);
-      _addToHistory(ConsoleEntry.output(_result.toString()));
+      _addToHistory(ConsoleEntry.output(formatResultForDisplay(_result)));
       clearInput();
     } catch (e) {
       _error = e;
@@ -130,7 +161,7 @@ class JsInterpreterViewModel extends ChangeNotifier {
 
     try {
       _result = await _service.loadJsFromUrlAndEvaluate(url);
-      _addToHistory(ConsoleEntry.output(_result.toString()));
+      _addToHistory(ConsoleEntry.output(formatResultForDisplay(_result)));
       _addToHistory(ConsoleEntry.info('Loaded code & evaluated from: $url'));
     } catch (e) {
       _error = e;
@@ -149,7 +180,9 @@ class JsInterpreterViewModel extends ChangeNotifier {
     _urlController.clear();
     _clearResult();
     _clearError();
-    _consoleHistory.clear();
+    _consoleHistory
+      ..clear()
+      ..add(ConsoleEntry.info(resultContractHelp));
     notifyListeners();
   }
 

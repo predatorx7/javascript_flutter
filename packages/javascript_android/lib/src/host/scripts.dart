@@ -1,12 +1,11 @@
 part of 'state.dart';
 
 // ignore: non_constant_identifier_names
-String _MESSAGING_SCRIPT(bool useConsoleMessagingHack) => '''
+String _MESSAGING_SCRIPT(JavaScriptAndroidMessagingTransport transport) => '''
 class HostMessenger {
     constructor(name) {
         this.channelName = name;
         this.pendingMessages = [];
-        this.id = 0;
     }
 
     getPendingMessages() {
@@ -15,6 +14,12 @@ class HostMessenger {
 
     removeMessageById(id) {
         this.pendingMessages = this.pendingMessages.filter(m => m.id !== id);
+    }
+
+    rejectAll(error) {
+        const pending = this.pendingMessages;
+        this.pendingMessages = [];
+        pending.forEach(m => m.reject(error));
     }
 
     resolveById(id, response) {
@@ -42,14 +47,17 @@ class HostMessenger {
             throw new Error(`Message must be a string, got \${typeof message}`);
         }
         let promise = new Promise((resolve, reject) => {
-            const nextId = this.id++;
+            // One counter shared by all messengers so ids are never reused when a channel is re-added.
+            const nextId = globalThis.JavaScriptAndroid.nextMessageId++;
             this.pendingMessages.push({
                 id: nextId,
                 message,
                 resolve,
                 reject
             });
-            if (globalThis.JavaScriptAndroid.useConsoleMessagingHack) {
+            if (globalThis.JavaScriptAndroid.usePort) {
+                globalThis.JavaScriptAndroid.sendToHost(JSON.stringify({ channelName: this.channelName, id: nextId, message }));
+            } else if (globalThis.JavaScriptAndroid.useConsoleMessagingHack) {
                 this.postMessageForConsoleMessagingHack(nextId, message);
             }
         });
@@ -70,8 +78,36 @@ globalThis.sendMessage = function(channelName, message) {
 
 globalThis.JavaScriptAndroid = {
   HostMessengerRegisteredChannels: {},
+  nextMessageId: 0,
   /// Using console.warn because it may be the least used console method.
-  useConsoleMessagingHack: $useConsoleMessagingHack ? console.warn : false,
+  useConsoleMessagingHack: ${transport == JavaScriptAndroidMessagingTransport.consoleMessaging} ? console.warn : false,
+  usePort: ${transport == JavaScriptAndroidMessagingTransport.messagePort},
+  port: null,
+  portQueue: [],
+  /// Posts a string to the host, queueing it until the message port is ready.
+  sendToHost: function(raw) {
+    const self = globalThis.JavaScriptAndroid;
+    if (self.port) {
+      self.port.postMessage(raw);
+    } else {
+      self.portQueue.push(raw);
+    }
+  },
+  /// Handles `{channelName, id, ok, message | error}` replies from the host.
+  onHostMessage: function(raw) {
+    try {
+      const reply = JSON.parse(raw);
+      const channel = globalThis.JavaScriptAndroid.HostMessengerRegisteredChannels[reply.channelName];
+      if (!channel) return;
+      if (reply.ok) {
+        channel.resolveById(reply.id, reply.message);
+      } else {
+        channel.rejectById(reply.id, new Error(reply.error));
+      }
+    } catch (e) {
+      console.error('Failed to handle a message from the host', e);
+    }
+  },
   getPendingMessages: function(channelName) {
     try {
       const registeredChannels = globalThis.JavaScriptAndroid.HostMessengerRegisteredChannels;
@@ -92,6 +128,21 @@ if (globalThis.JavaScriptAndroid.useConsoleMessagingHack) {
   /// Forward warning level messages to console.info
   console.warn = function (...args) { console.info(`WARNING: `, ...args);}
 }
+
+if (globalThis.JavaScriptAndroid.usePort) {
+  android.getNamedPort("javascript_android_host").then(function (port) {
+    const self = globalThis.JavaScriptAndroid;
+    port.onmessage = function (e) { self.onHostMessage(e.data); };
+    self.port = port;
+    // Flush messages posted before the port was ready.
+    const queued = self.portQueue;
+    self.portQueue = [];
+    queued.forEach(function (raw) { port.postMessage(raw); });
+  }, function (e) {
+    console.error('Failed to open the host message port', e);
+  });
+}
+void 0;
 ''';
 
 const String _TIMEOUT_SCRIPT = r'''

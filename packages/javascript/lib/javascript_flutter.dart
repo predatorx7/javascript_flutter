@@ -89,7 +89,9 @@ abstract interface class JavaScript {
   /// to asynchronously send a message that will be passed to [JavaScriptChannelParams.onMessageReceived] and a reply
   /// will be sent back to the JavaScript code.
   ///
-  /// As per the example, the reply back to javascript will be a promise that resolves to `"3"`.
+  /// The message is a string and is delivered verbatim to [JavaScriptMessage.message]. [JavaScriptReply.message]
+  /// is delivered verbatim to JavaScript as the string the promise resolves to; as per the example, it resolves to `"3"`.
+  /// Calling `sendMessage` with a channel name that is not registered throws in JavaScript.
   ///
   /// Calling this function more than once with the same [JavaScriptChannelParams.name] will remove the previously set [JavaScriptChannelParams].
   Future<void> addJavaScriptChannel(
@@ -106,10 +108,36 @@ abstract interface class JavaScript {
   /// Evaluates the given JavaScript code [javaScript] in the context of the current [JavaScript] instance, and returns the result.
   ///
   /// {@template javascript_run_javascript_returning_result_behavior}
-  /// There are multiple possible behaviors based on the output of the expression:
-  /// 1. If the JS expression evaluates to a JS String or a Promise of a JS String, then the [Future] resolves to a [Map], [List], [String], [num], [bool], or [Null] if the string can be decoded as JSON, otherwise the [Future] resolves to the string.
-  /// 2. If the JS expression evaluates to another data type, then the [Future] resolves to an **empty** [String] on some platforms.
-  /// 3. The [Future] completes with an error if a JavaScript error occurred.
+  /// ## Result contract
+  ///
+  /// 1. The value the script evaluates to (its completion value, i.e. the last
+  ///    expression statement; do not use `return` at the top level), or the
+  ///    value a returned `Promise` resolves to, is returned as a [String]
+  ///    exactly as-is. There is no automatic JSON decoding, number or boolean
+  ///    parsing, or type detection. `""` is `""`.
+  /// 2. If that value is not a JavaScript string (a number, boolean, `null`,
+  ///    `undefined`, object, array, bigint, function, `NaN`, `Infinity`, a
+  ///    script ending in a declaration, an empty script, ...) the [Future]
+  ///    resolves to the empty string `''` on every platform.
+  /// 3. Promises are awaited (on Android this needs a WebView with
+  ///    `JS_FEATURE_PROMISE_RETURN`; WebViews without it
+  ///    resolve a Promise result to `''`). A rejected promise completes the [Future] with a
+  ///    [JavaScriptExecutionException] carrying the rejection reason. A script
+  ///    that throws or fails to parse completes it with a
+  ///    [JavaScriptExecutionException] carrying the JavaScript error message.
+  /// 4. The declared type is `Future<Object?>` for API compatibility, but the
+  ///    [Future] always resolves to a [String]. It may be narrowed to
+  ///    `Future<String>` in a future major version.
+  ///
+  /// To get a number or an object back, end the script with
+  /// `JSON.stringify(...)` and decode it in Dart:
+  ///
+  /// ```dart
+  /// final result = await javascript.runJavaScriptReturningResult(
+  ///   'JSON.stringify({total: 1 + 2, items: [1, 2]})',
+  /// );
+  /// final data = jsonDecode(result as String) as Map<String, dynamic>;
+  /// ```
   ///
   /// The global variables set by one evaluation are visible for later evaluations. This is similar to adding multiple `<script>` tags in HTML.
   /// {@endtemplate}

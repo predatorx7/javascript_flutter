@@ -1,43 +1,21 @@
 version: 2
-enable-beta-ecosystems: true
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
   - package-ecosystem: "pub"
-    directory: "/javascript"
+    directories:
+      - "/packages/javascript"
+      - "/packages/javascript/example"
+      - "/packages/javascript_platform_interface"
+      - "/packages/javascript_android"
+      - "/packages/javascript_darwin"
     schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript/example"
+      interval: "weekly"
+  - package-ecosystem: "gradle"
+    directories:
+      - "/packages/javascript_android/android"
+      - "/packages/javascript/example/android"
     schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_platform_interface"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_android"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_ios"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_linux"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_macos"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_web"
-    schedule:
-      interval: "daily"
-  - package-ecosystem: "pub"
-    directory: "/javascript_windows"
-    schedule:
-      interval: "daily"
+      interval: "weekly"

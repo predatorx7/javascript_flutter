@@ -6,9 +6,11 @@ import 'package:javascript_platform_interface/javascript_platform_interface.dart
 import 'package:logging/logging.dart';
 
 import 'exception.dart';
-import 'src/parse.dart';
 import 'src/host/state.dart';
+import 'src/host/transport.dart';
 import 'src/pigeons/messages.pigeon.dart';
+
+export 'src/host/transport.dart' show JavaScriptAndroidMessagingTransport;
 
 final _logger = Logger('JavaScriptAndroid');
 
@@ -17,6 +19,25 @@ class JavaScriptAndroid extends JavaScriptPlatform {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final pigeonPlatformApi = JavaScriptAndroidPlatformApi();
+
+  /// Transports that must not be selected when a new environment starts.
+  ///
+  /// Lets tests exercise the fallbacks on a device that supports every
+  /// transport.
+  @visibleForTesting
+  static Set<JavaScriptAndroidMessagingTransport> debugDisabledTransports = {};
+
+  static final _selectedTransports =
+      <String, JavaScriptAndroidMessagingTransport>{};
+
+  /// The transport selected for the environment [javaScriptInstanceId], or
+  /// null if there is no such environment.
+  @visibleForTesting
+  static JavaScriptAndroidMessagingTransport? debugTransportFor(
+    String javaScriptInstanceId,
+  ) {
+    return _selectedTransports[javaScriptInstanceId];
+  }
 
   /// Registers this class as the default instance of [JavaScriptPlatform]
   static void registerWith() {
@@ -75,6 +96,19 @@ class JavaScriptAndroid extends JavaScriptPlatform {
   final _consoleMessageHandler =
       <String, JavaScriptAndroidConsoleMessageHandler>{};
 
+  final _messagePortHandler = <String, JavaScriptAndroidMessagePortHandler>{};
+
+  void _onPortMessage(String javaScriptInstanceId, String message) {
+    final state = _activeEngineHostState[javaScriptInstanceId];
+    if (state == null) {
+      _logger.warning(
+        'Dropping a message for unknown JavaScriptAndroid instance $javaScriptInstanceId',
+      );
+      return;
+    }
+    state.onPortMessage(message);
+  }
+
   @override
   Future<void> startNewJavaScriptEnvironment(
     String javaScriptInstanceId, {
@@ -85,8 +119,60 @@ class JavaScriptAndroid extends JavaScriptPlatform {
       (api) => api.startJavaScriptEnvironment(javaScriptInstanceId),
     );
 
-    final didSetConsoleMessageHandler = await _usePlatform(
-      (api) {
+    try {
+      await _startTransportAndState(
+        javaScriptInstanceId,
+        messageListenerInterval,
+        implementJsSetTimeout,
+      );
+    } catch (_) {
+      _activeEngineHostState.remove(javaScriptInstanceId)?.dispose();
+      _selectedTransports.remove(javaScriptInstanceId);
+      _consoleMessageHandler.remove(javaScriptInstanceId);
+      _messagePortHandler.remove(javaScriptInstanceId);
+      try {
+        // Do not leak the native isolate and message port.
+        await _usePlatform((api) => api.dispose(javaScriptInstanceId));
+      } catch (e, s) {
+        _logger.warning('Failed to dispose $javaScriptInstanceId', e, s);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _startTransportAndState(
+    String javaScriptInstanceId,
+    Duration messageListenerInterval,
+    bool implementJsSetTimeout,
+  ) async {
+    // Transport selection order: message port, console messaging, polling.
+    var transport = JavaScriptAndroidMessagingTransport.polling;
+
+    if (!debugDisabledTransports
+        .contains(JavaScriptAndroidMessagingTransport.messagePort)) {
+      final didSetMessagePortHandler = await _usePlatform((api) {
+        final handler = JavaScriptAndroidMessagePortHandler(
+          onMessage: (_, String message) {
+            _onPortMessage(javaScriptInstanceId, message);
+          },
+        );
+        _messagePortHandler[javaScriptInstanceId] = handler;
+        return api.setJavaScriptMessagePortHandler(
+          javaScriptInstanceId,
+          handler.pigeon_instanceManager.getIdentifier(handler)!,
+        );
+      });
+      if (didSetMessagePortHandler) {
+        transport = JavaScriptAndroidMessagingTransport.messagePort;
+      } else {
+        _messagePortHandler.remove(javaScriptInstanceId);
+      }
+    }
+
+    if (transport == JavaScriptAndroidMessagingTransport.polling &&
+        !debugDisabledTransports
+            .contains(JavaScriptAndroidMessagingTransport.consoleMessaging)) {
+      final didSetConsoleMessageHandler = await _usePlatform((api) {
         final handler = JavaScriptAndroidConsoleMessageHandler(
           onMessage: (_, String message) async {
             _onConsoleMessage(javaScriptInstanceId, message);
@@ -99,10 +185,16 @@ class JavaScriptAndroid extends JavaScriptPlatform {
           javaScriptInstanceId,
           handler.pigeon_instanceManager.getIdentifier(handler)!,
         );
-      },
-    );
+      });
+      if (didSetConsoleMessageHandler) {
+        transport = JavaScriptAndroidMessagingTransport.consoleMessaging;
+      } else {
+        _consoleMessageHandler.remove(javaScriptInstanceId);
+      }
+    }
 
-    _logger.config('useConsoleMessagingHack: $didSetConsoleMessageHandler');
+    _logger.config('messaging transport: ${transport.name}');
+    _selectedTransports[javaScriptInstanceId] = transport;
 
     final engineHostState = await EngineHostState.create(
       engineId: javaScriptInstanceId,
@@ -111,7 +203,12 @@ class JavaScriptAndroid extends JavaScriptPlatform {
       runJavaScript: (javaScript) {
         return runJavaScriptReturningResult(javaScriptInstanceId, javaScript);
       },
-      useConsoleMessagingHack: didSetConsoleMessageHandler,
+      transport: transport,
+      postMessageToJavaScript: (message) {
+        return _usePlatform(
+          (api) => api.postMessageToJavaScript(javaScriptInstanceId, message),
+        );
+      },
     );
     _activeEngineHostState[javaScriptInstanceId] = engineHostState;
   }
@@ -131,7 +228,7 @@ class JavaScriptAndroid extends JavaScriptPlatform {
     String javaScriptChannelName,
   ) async {
     final engineState = _requireEngineState(javaScriptInstanceId);
-    engineState.removeChannel(javaScriptChannelName);
+    await engineState.removeChannel(javaScriptChannelName);
   }
 
   @override
@@ -140,6 +237,8 @@ class JavaScriptAndroid extends JavaScriptPlatform {
     engineState.dispose();
     _activeEngineHostState.remove(javaScriptInstanceId);
     _consoleMessageHandler.remove(javaScriptInstanceId);
+    _messagePortHandler.remove(javaScriptInstanceId);
+    _selectedTransports.remove(javaScriptInstanceId);
     return _usePlatform((api) => api.dispose(javaScriptInstanceId));
   }
 
@@ -155,7 +254,9 @@ class JavaScriptAndroid extends JavaScriptPlatform {
       );
     });
 
-    return parseValue(result);
+    // The engine returns the script's string result verbatim, and an empty
+    // string for anything that is not a string. Nothing is decoded here.
+    return result ?? '';
   }
 
   @override
@@ -170,7 +271,9 @@ class JavaScriptAndroid extends JavaScriptPlatform {
       );
     });
 
-    return parseValue(result);
+    // The engine returns the script's string result verbatim, and an empty
+    // string for anything that is not a string. Nothing is decoded here.
+    return result ?? '';
   }
 
   @override
