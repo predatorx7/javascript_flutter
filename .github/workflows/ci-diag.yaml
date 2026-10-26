@@ -1,0 +1,89 @@
+name: ci-diag
+
+on:
+  push:
+    branches:
+      - 'ci-diag/**'
+  workflow_dispatch:
+
+jobs:
+  ios:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [headless, simulator-app]
+    name: ios-${{ matrix.mode }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/javascript/example
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Toolchain info
+        run: |
+          sw_vers
+          xcodebuild -version
+          flutter doctor -v
+
+      - name: Start simulator
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) for x in d[k] if x["name"].startswith("iPhone")))')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          if [ "${{ matrix.mode }}" = "simulator-app" ]; then
+            open -a Simulator --args -CurrentDeviceUDID "$UDID"
+            sleep 10
+          fi
+          xcrun simctl list devices booted
+
+      - name: Integration tests (capped)
+        timeout-minutes: 12
+        run: flutter test integration_test/javascript_test.dart -d ${{ steps.simulator.outputs.udid }}
+
+  android:
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: ["37", "37.1", "37.2"]
+    name: android-${{ matrix.api-level }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: packages/javascript/example
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Integration tests (emulator)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: packages/javascript/example
+          script: |
+            adb shell dumpsys webviewupdate | grep -iE 'Current WebView package|versionName' | head -3
+            flutter test integration_test/android_transports_test.dart -d emulator-5554
