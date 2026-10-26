@@ -39,7 +39,7 @@ class CommandInputSection extends StatelessWidget {
                   ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'Enter JavaScript code...',
+                    hintText: 'Enter JavaScript code, e.g. $exampleSnippet',
                     hintStyle: TextStyle(color: Colors.grey),
                   ),
                   onSubmitted: (_) => viewModel.executeCode(),

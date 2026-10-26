@@ -23,13 +23,58 @@ For applications requiring non-interactive JavaScript evaluation, using this Jav
 
 The Android plugin [javascript_android](https://pub.dev/packages/javascript_android) depends on [Android Jetpack JavaScript Engine](https://developer.android.com/reference/kotlin/androidx/javascriptengine) library for its [JavaScriptIsolate](https://developer.android.com/reference/kotlin/androidx/javascriptengine/JavaScriptIsolate) API.
 
-The implementation uses method channel for communication generated with [pub.dev:pigeon](https://pub.dev/packages/pigeon) library.
+The implementation uses method channel (and message ports for channel messages) for communication generated with [pub.dev:pigeon](https://pub.dev/packages/pigeon) library.
 
 ### iOS/MacOS
 
 The iOS, & MacOS plugin [javascript_darwin](https://pub.dev/packages/javascript_darwin) depends on [Apple's JavaScriptCore](https://developer.apple.com/documentation/javascriptcore) framework for its [JSContext](https://developer.apple.com/documentation/javascriptcore/jscontext) API.
 
 The implementation uses FFI for communication, taken from [pub.dev:flutter_js](https://pub.dev/packages/flutter_js), and [pub.dev:flutter_jscore](https://pub.dev/packages/flutter_jscore) flutter packages (With some additional improvements).
+
+## Requirements
+
+- **Flutter**: 3.44 or newer (the Android plugin builds with the Flutter 3.44+ Gradle integration and Java 17).
+- **Android**: `minSdk` 26 or newer (required by `androidx.javascriptengine`), and a device whose WebView/Chromium supports the JavaScript sandbox feature. Awaiting a `Promise` result additionally needs a WebView with `JS_FEATURE_PROMISE_RETURN`; on WebViews without it a script that evaluates to a `Promise` resolves to `''` and a warning is logged.
+- **iOS/MacOS**: A platform version that supports JavaScriptCore (see [javascript_darwin](https://pub.dev/packages/javascript_darwin)).
+
+## Return values: string in, string out
+
+`runJavaScriptReturningResult` and `runJavaScriptFromFileReturningResult` follow one rule on every platform:
+
+1. The value the script evaluates to (its completion value, i.e. the last expression statement; no `return` at top level), or the value a returned `Promise` resolves to, is returned to Dart as a `String` **exactly as-is**. No automatic JSON decoding, no number/boolean parsing, no type detection. `""` is `""`.
+2. If that value is **not a JS string** (number, boolean, `null`, `undefined`, object, array, bigint, function, `NaN`, `Infinity`, a script ending in a declaration, an empty script, ...), the `Future` resolves to the empty string `''` on every platform.
+3. Promises are awaited (on Android this needs a WebView with `JS_FEATURE_PROMISE_RETURN`, see Requirements). A rejected promise throws a `JavaScriptExecutionException` carrying the rejection reason; a script that throws or fails to parse throws a `JavaScriptExecutionException` carrying the JS error message.
+4. The declared return type stays `Future<Object?>` for API compatibility, but it always resolves to a `String`. It may be narrowed to `Future<String>` in a future major version.
+5. Channels: `sendMessage(channelName, message)` in JS takes a string and the Dart handler receives it verbatim in `JavaScriptMessage.message`; `JavaScriptReply.message` is delivered to JS verbatim as the promise's resolved string; calling `sendMessage` with an unregistered channel name throws in JS.
+
+To get a number or an object back, end your script with `JSON.stringify(...)` and call `jsonDecode` on the Dart side:
+
+```dart
+final result = await javascript.runJavaScriptReturningResult(
+  'JSON.stringify({total: 1 + 2, items: [1, 2, 3]})',
+);
+final data = jsonDecode(result as String) as Map<String, dynamic>;
+print(data['total']); // 3
+
+// Promises work the same way.
+final fromPromise = await javascript.runJavaScriptReturningResult(
+  'Promise.resolve().then(() => JSON.stringify([1, 2, 3]))',
+);
+print(jsonDecode(fromPromise as String)); // [1, 2, 3]
+
+// A non-string value becomes an empty string.
+print(await javascript.runJavaScriptReturningResult('2 + 2')); // ''
+```
+
+If you want "return the last expression, whatever its type" behavior, implement it in your own JavaScript. This package deliberately does not parse or wrap your script (scripts can be multiple megabytes).
+
+> **Behavior change in 1.3.0 (fixes [#11](https://github.com/predatorx7/javascript_flutter/issues/11))**
+>
+> Previously, Android auto-decoded results (a JS string `"42"` became Dart `int 42`, `"true"` became a `bool`, `'{"a":1}'` became a `Map`), and Darwin returned typed values for numbers, booleans and objects and double-encoded promise results. Now both platforms return the string verbatim and non-strings become `''`.
+>
+> **Migration:** wrap with `jsonDecode(result as String)` where you relied on auto-decoding, and end scripts with `JSON.stringify(...)` where you relied on typed results.
+>
+> Root cause: Android's `androidx.javascriptengine` `evaluateJavaScriptAsync` only returns strings and coerces every other type to `""`, which the plugin passed through, while Darwin had its own inconsistent typed conversion.
 
 ## Using
 
@@ -60,17 +105,21 @@ void example() async {
     const sum = (a, b) => a + b;
 
     /// Send a message to the platform and return the result
-    const platformSum = (a, b) => sendMessage('Sum', JSON.stringify({a: 1, b: 2})).then(result => JSON.parse(result));
+    const platformSum = (a, b) => sendMessage('Sum', JSON.stringify({a, b})).then(result => JSON.parse(result));
 
     const addSum = async (a, b) => {
       return sum(a, b) + (await platformSum(a, b));
     }
 
-    /// Return the result as a string or a promise of a string.
+    /// The result of the last expression (or the value of a returned Promise) is
+    /// handed to Dart. It must be a string: use JSON.stringify for anything else.
     /// No return statement should be used at this top level evaluation.
-    addSum(1, 2).then(result => result.toString());
+    addSum(1, 2).then(result => JSON.stringify({sum: result}));
   ''');
-  print(result);
+
+  /// The result is always a String. Decode it yourself.
+  final data = jsonDecode(result as String) as Map<String, dynamic>;
+  print(data['sum']); // 6
 
   /// Dispose of the javascript environment to clear up resources
   await javascript.dispose();
@@ -182,39 +231,41 @@ Evaluates the given JavaScript code in the context of the current JavaScript ins
 **Parameters:**
 - `javaScript`: The JavaScript code to evaluate
 
-**Returns:** `Future<Object?>` - The result of the JavaScript evaluation
+**Returns:** `Future<Object?>` - always a `String` (see [Return values](#return-values-string-in-string-out))
 
 **Behavior:**
-The method has specific behavior based on the output of the JavaScript expression:
-
-1. **JSON String or Promise of JSON String**: Returns a `Map`, `List`, `String`, `num`, `bool`, or `null` if the string can be decoded as JSON, otherwise returns the string.
-2. **Other Data Types**: Returns an empty `String` on some platforms.
-3. **JavaScript Error**: The Future completes with an error.
+1. **String or Promise of a String**: the string is returned exactly as-is, with no JSON decoding or type detection. `""` is `""`.
+2. **Any other value** (number, boolean, `null`, `undefined`, object, array, ...): the empty string `''` on every platform. Use `JSON.stringify(...)` in JavaScript and `jsonDecode` in Dart for structured data.
+3. **JavaScript error, parse failure or rejected Promise**: the Future completes with a `JavaScriptExecutionException`.
 
 Global variables set by one evaluation are visible for later evaluations, similar to adding multiple `<script>` tags in HTML.
 
 **Examples:**
 ```dart
-// Simple expression
+// Non-string values become an empty string
 final result1 = await javascript.runJavaScriptReturningResult('2 + 2');
-print(result1); // 4
+print(result1); // ''
 
-// JSON object
-final result2 = await javascript.runJavaScriptReturningResult('''
+// A string is returned verbatim
+final result2 = await javascript.runJavaScriptReturningResult("'42'");
+print(result2); // 42 (the String "42", not an int)
+
+// Structured data: JSON.stringify in JS, jsonDecode in Dart
+final result3 = await javascript.runJavaScriptReturningResult('''
   JSON.stringify({name: "John", age: 30})
 ''');
-print(result2); // {name: John, age: 30}
+print(jsonDecode(result3 as String)); // {name: John, age: 30}
 
-// Promise that resolves to JSON
-final result3 = await javascript.runJavaScriptReturningResult('''
+// Promise that resolves to a string
+final result4 = await javascript.runJavaScriptReturningResult('''
   Promise.resolve(JSON.stringify([1, 2, 3]))
 ''');
-print(result3); // [1, 2, 3]
+print(jsonDecode(result4 as String)); // [1, 2, 3]
 
 // Function with global state
 await javascript.runJavaScriptReturningResult('let counter = 0;');
-final result4 = await javascript.runJavaScriptReturningResult('++counter');
-print(result4); // 1
+final result5 = await javascript.runJavaScriptReturningResult('String(++counter)');
+print(result5); // 1
 
 // Error handling
 try {
@@ -231,10 +282,10 @@ Loads the content of a file from the given path and evaluates it as JavaScript c
 **Parameters:**
 - `javaScriptFilePath`: Path to the JavaScript file to load and evaluate
 
-**Returns:** `Future<Object?>` - The result of the JavaScript evaluation
+**Returns:** `Future<Object?>` - always a `String`
 
 **Behavior:**
-Same behavior as `runJavaScriptReturningResult()` but loads code from a file instead of a string. This is more efficient for large scripts that would be expensive to pass as strings.
+Same result contract as `runJavaScriptReturningResult()` but loads code from a file instead of a string. This is more efficient for large scripts that would be expensive to pass as strings.
 
 **Example:**
 ```dart
@@ -251,7 +302,7 @@ print(result);
 
 Adds a new JavaScript channel to the set of enabled channels for the current JavaScript instance.
 
-JavaScript code can then call `sendMessage('channelName', JSON.stringify(data))` to send a message that will be passed to the `onMessageReceived` callback, and a reply will be sent back to the JavaScript code as a Promise. Calling this function more than once with the same `JavaScriptChannelParams.name` will remove the previously set `JavaScriptChannelParams`.
+JavaScript code can then call `sendMessage('channelName', JSON.stringify(data))` to send a message that will be passed to the `onMessageReceived` callback, and a reply will be sent back to the JavaScript code as a Promise. The message is a string delivered verbatim to `JavaScriptMessage.message`, and `JavaScriptReply.message` is delivered verbatim as the string the Promise resolves to. Calling `sendMessage` with an unregistered channel name throws in JavaScript. Calling this function more than once with the same `JavaScriptChannelParams.name` will remove the previously set `JavaScriptChannelParams`.
 
 **Parameters:**
 - `javaScriptChannelParams`: Configuration for the JavaScript channel including name and message handler
